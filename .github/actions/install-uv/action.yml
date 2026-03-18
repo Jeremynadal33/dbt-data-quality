@@ -1,0 +1,36 @@
+name: Install uv
+description: Install uv
+
+inputs:
+  uv_version:
+    description: "Version of uv to install"
+    required: false
+    default: "0.6.9"
+
+  cache_dependency_glob:
+    description: "File of the uv.lock file to use for caching"
+    required: false
+    default: "uv.lock"
+
+  python_version_file:
+    description: "Path to the Python version file"
+    required: false
+    default: ".python-version"
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Install uv"
+      uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5.4.1
+      with:
+        # Install a specific version of uv.
+        version: "${{ inputs.uv_version }}"
+        # Enable caching to improve CI execution time.
+        enable-cache: true
+        # Invalidate the cache when the uv.lock file changes.
+        cache-dependency-glob: "${{ inputs.cache_dependency_glob }}"
+
+    - name: "Set up Python"
+      uses: actions/setup-python@v5
+      with:
+        python-version-file: "${{ inputs.python_version_file }}"

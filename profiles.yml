@@ -1,0 +1,31 @@
+common: &common
+  type: snowflake
+  schema: jnadal_db
+  warehouse: common_wh_xs
+  role: r_jnadal
+  user: jnadal
+  account: "{{ env_var('DBT_SNOWFLAKE_ACCOUNT')}}"
+  database: jnadal_db
+  password: "{{ env_var('DBT_SNOWFLAKE_PAT') }}"
+  threads: 4
+
+dbt_data_quality:
+  outputs:
+    local:
+      <<: *common
+    prod:
+      <<: *common
+  target: local
+
+
+# to run Elementary CLI commands
+# for the moment it is configured to run on dev
+elementary:
+  target: local
+  outputs:
+    local:
+      <<: *common
+      schema: elementary
+    prod:
+      <<: [*common]
+      schema: elementary

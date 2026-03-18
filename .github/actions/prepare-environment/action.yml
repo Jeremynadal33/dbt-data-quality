@@ -1,0 +1,30 @@
+name: 'Prepare Environment'
+description: 'Prepare the environment (Python & UV) for the workflow'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Cache UV dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/uv
+          .venv
+        key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-uv
+
+    - name: Install uv
+      uses: ./.github/actions/install-uv
+
+    - name: Install project dependencies
+      shell: bash
+      run: |
+        uv sync
+    
+    # Adds the `dbtecho` command: a dbt wrapper that prints each command in green before execution for better CI log readability
+    - name: Add dbtecho alias
+      uses: ./.github/actions/add-dbtecho-alias

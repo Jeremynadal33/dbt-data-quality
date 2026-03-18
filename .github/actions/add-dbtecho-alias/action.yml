@@ -1,0 +1,21 @@
+name: Add dbtecho alias
+description: >
+  Adds a `dbtecho` command that wraps `dbt` to print the full command
+  in green before executing it, improving CI log readability.
+
+runs:
+  using: composite
+  steps:
+    - name: Create dbtecho wrapper script
+      shell: bash
+      run: |
+        DBTECHO_DIR="$RUNNER_TEMP/dbtecho-bin"
+        mkdir -p "$DBTECHO_DIR"
+        cat > "$DBTECHO_DIR/dbtecho" << 'SCRIPT'
+        #!/usr/bin/env bash
+        GREEN="\033[0;32m"
+        echo -e "${GREEN}+ dbt $*"
+        dbt "$@"
+        SCRIPT
+        chmod +x "$DBTECHO_DIR/dbtecho"
+        echo "$DBTECHO_DIR" >> "$GITHUB_PATH"

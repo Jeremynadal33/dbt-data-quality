@@ -1,0 +1,66 @@
+name: Run dbt & deploy docs
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * *' 
+
+jobs:
+  run-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Prepare environment
+        uses: ./.github/actions/prepare-environment
+
+      - name: Install project dependencies
+        shell: bash
+        run: |
+          uv sync --group elementary
+
+      - name: Run dbt project
+        env:
+          DBT_SNOWFLAKE_ACCOUNT: ${{ secrets.DBT_SNOWFLAKE_ACCOUNT }}
+          DBT_SNOWFLAKE_PAT: ${{ secrets.DBT_SNOWFLAKE_PAT }}
+        run: |
+          source .venv/bin/activate
+          dbtecho debug --target prod
+          dbtecho deps
+          dbtecho run -s dbt_data_quality
+          dbtecho test -s dbt_data_quality,test_type:data
+
+      - name: Generate docs
+        env:
+          DBT_SNOWFLAKE_ACCOUNT: ${{ secrets.DBT_SNOWFLAKE_ACCOUNT }}
+          DBT_SNOWFLAKE_PAT: ${{ secrets.DBT_SNOWFLAKE_PAT }}
+        # The Elementary report could fail if we update elementary version and the schema changes
+        # So we need to run dbt run --select elementary --target prod (or prod) first
+        run: |
+          source .venv/bin/activate
+          dbtecho debug --target prod
+          dbt deps
+          dbt docs generate --target-path docs/dbt_docs --target prod
+          edr report --profiles-dir . --profile-target prod --env prod --target-path docs/elementary_report
+          mv docs/elementary_report/elementary_report.html docs/elementary_report/index.html
+          
+      # Checkout gh-pages and temp subfolder to put the contents we want to keep
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      # Sync dbt and edr docs content only (we want to keep root CNAME/index.html/other static assets)
+      # I use a temp dir gh-pages to avoid overwriting directly docs/
+      - name: Sync docs 
+        run: |
+          rm -rf gh-pages/docs/dbt_docs gh-pages/docs/elementary_report
+          cp -r docs/dbt_docs gh-pages/docs/
+          cp -r docs/elementary_report gh-pages/docs/
+          cd gh-pages
+          git add docs/dbt_docs docs/elementary_report
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update dbt & Elementary docs" || echo "No changes to commit"
+          git push origin gh-pages
