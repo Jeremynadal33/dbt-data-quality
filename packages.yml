@@ -1,0 +1,7 @@
+packages:
+  - package: elementary-data/elementary
+    version: 0.21.0
+  - package: metaplane/dbt_expectations
+    version: 0.10.10
+  - package: dbt-labs/dbt_utils
+    version: 1.3.3

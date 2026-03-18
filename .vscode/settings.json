@@ -1,0 +1,16 @@
+{
+    "nao.dbt.enabled": true,
+    "terminal.integrated.profiles.osx": {
+        "zsh-with-env": {
+            "path": "zsh",
+            "args": ["-c", "function load_dotenv() { if [[ -f .env ]]; then while IFS='=' read -r key value || [[ -n \"$key\" ]]; do [[ $key =~ ^[[:space:]]*# ]] && continue; [[ -z $key ]] && continue; key=$(echo \"$key\" | xargs); value=$(echo \"$value\" | xargs); if [[ $value =~ ^\\\".*\\\"$ ]] || [[ $value =~ ^\\'.*\\'$ ]]; then value=${value:1:-1}; fi; export \"$key=$value\"; done < .env; echo \"✅ Loaded environment variables from .env\"; fi }; function activate_venv() { if [[ -f .venv/bin/activate ]]; then source .venv/bin/activate && echo \"✅ Activated Python virtual environment (.venv)\"; fi }; load_dotenv 2>/dev/null || true; activate_venv 2>/dev/null || true; exec zsh"]
+        }
+    },
+    "terminal.integrated.defaultProfile.osx": "zsh-with-env",
+
+    // For Python
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 1000,
+}

@@ -1,0 +1,14 @@
+[project]
+name = "dbt-data-quality"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "dbt-snowflake==1.11.3",
+]
+
+[dependency-groups]
+elementary = [
+    "elementary-data[databricks]==0.23.0",
+]
