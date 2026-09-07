@@ -5,10 +5,10 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "dbt-snowflake==1.11.3",
+    "dbt-snowflake==1.12.0",
 ]
 
 [dependency-groups]
 elementary = [
-    "elementary-data[databricks]==0.23.0",
+    "elementary-data[databricks]==0.25.1",
 ]
