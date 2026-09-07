@@ -1,0 +1,56 @@
+[env]
+_.file = ".env"
+DBT_TARGET = "{{ get_env(name='DBT_TARGET', default='local') }}"
+
+[tasks.setup]
+description = "Install Python dependencies (incl. Elementary)"
+run = "uv sync --group elementary"
+
+[tasks."dbt:debug"]
+description = "Check the dbt connection to the warehouse"
+run = "uv run dbt debug --target $DBT_TARGET"
+
+[tasks."dbt:deps"]
+description = "Install dbt packages"
+run = "uv run dbt deps"
+
+[tasks."dbt:run"]
+description = "Run the dbt_data_quality and elementary models"
+run = "uv run dbt run -s dbt_data_quality elementary --target $DBT_TARGET"
+
+[tasks."dbt:test"]
+description = "Run the dbt_data_quality data tests"
+run = "uv run dbt test -s dbt_data_quality,test_type:data --target $DBT_TARGET"
+
+[tasks."dbt:docs"]
+description = "Generate the dbt docs site"
+run = "uv run dbt docs generate --target-path docs/dbt_docs --target $DBT_TARGET"
+
+[tasks."elementary:report"]
+description = "Generate the Elementary report"
+run = "uv run edr report --profiles-dir . --profile-target $DBT_TARGET --env prod --target-path docs/elementary_report"
+
+[tasks."webapp:build"]
+description = "Build the docs webapp (landing page + dbt docs + Elementary report); skipped if nothing changed since the last build"
+sources = ["src/**/*", "web/index.html", "dbt_project.yml", "packages.yml", "package-lock.yml"]
+outputs = ["docs/index.html", "docs/dbt_docs/index.html", "docs/elementary_report/index.html"]
+run = """
+mise run dbt:deps
+mise run dbt:docs
+mise run elementary:report
+mv -f docs/elementary_report/elementary_report.html docs/elementary_report/index.html
+cp web/index.html docs/index.html
+"""
+
+[tasks."webapp:serve"]
+description = "Serve the built docs webapp locally"
+depends = ["webapp:build"]
+run = "python3 -m http.server 8000 --directory docs"
+
+[tasks."ci:run"]
+description = "Reproduce the CI 'Run dbt project' step (debug, deps, run, test)"
+run = "mise run dbt:debug && mise run dbt:deps && mise run dbt:run && mise run dbt:test"
+
+[tasks."ci:docs"]
+description = "Reproduce the CI 'Generate docs' step (debug, deps, docs, Elementary report)"
+run = "mise run dbt:debug && mise run webapp:build"
