@@ -36,4 +36,4 @@ models:
       +materialized: view
   elementary:
     +schema: elementary
-    +enabled: "{{ target.name.lower() in ['local', 'prod'] }}"
+    +enabled: "{{ target.name.lower() in ['prod'] }}"

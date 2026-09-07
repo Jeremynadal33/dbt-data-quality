@@ -17,11 +17,5 @@ runs:
     - name: Install uv
       uses: ./.github/actions/install-uv
 
-    - name: Install project dependencies
-      shell: bash
-      run: |
-        uv sync
-    
-    # Adds the `dbtecho` command: a dbt wrapper that prints each command in green before execution for better CI log readability
-    - name: Add dbtecho alias
-      uses: ./.github/actions/add-dbtecho-alias
+    - name: Install mise
+      uses: jdx/mise-action@v2

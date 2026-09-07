@@ -21,36 +21,25 @@ jobs:
         uses: ./.github/actions/prepare-environment
 
       - name: Install project dependencies
-        shell: bash
-        run: |
-          uv sync --group elementary
+        run: mise run setup
 
       - name: Run dbt project
         continue-on-error: true
         env:
           DBT_SNOWFLAKE_ACCOUNT: ${{ secrets.DBT_SNOWFLAKE_ACCOUNT }}
           DBT_SNOWFLAKE_PAT: ${{ secrets.DBT_SNOWFLAKE_PAT }}
-        run: |
-          source .venv/bin/activate
-          dbtecho debug --target prod
-          dbtecho deps
-          dbtecho run -s dbt_data_quality
-          dbtecho test -s dbt_data_quality,test_type:data
+          DBT_TARGET: prod
+        run: mise run ci:run
 
       - name: Generate docs
         env:
           DBT_SNOWFLAKE_ACCOUNT: ${{ secrets.DBT_SNOWFLAKE_ACCOUNT }}
           DBT_SNOWFLAKE_PAT: ${{ secrets.DBT_SNOWFLAKE_PAT }}
+          DBT_TARGET: prod
         # The Elementary report could fail if we update elementary version and the schema changes
         # So we need to run dbt run --select elementary --target prod (or prod) first
-        run: |
-          source .venv/bin/activate
-          dbtecho debug --target prod
-          dbt deps
-          dbt docs generate --target-path docs/dbt_docs --target prod
-          edr report --profiles-dir . --profile-target prod --env prod --target-path docs/elementary_report
-          mv docs/elementary_report/elementary_report.html docs/elementary_report/index.html
-          
+        run: mise run ci:docs
+
       # Checkout gh-pages and temp subfolder to put the contents we want to keep
       - name: Checkout gh-pages branch
         uses: actions/checkout@v4
