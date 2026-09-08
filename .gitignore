@@ -5,3 +5,6 @@ target/
 dbt_packages/
 logs/
 .user.yml
+
+docs/dbt_docs/
+docs/elementary_report/

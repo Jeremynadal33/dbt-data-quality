@@ -31,16 +31,19 @@ description = "Generate the Elementary report"
 run = "uv run edr report --profiles-dir . --profile-target $DBT_TARGET --env prod --target-path docs/elementary_report"
 
 [tasks."webapp:build"]
-description = "Build the docs webapp (landing page + dbt docs + Elementary report); skipped if nothing changed since the last build"
-sources = ["src/**/*", "web/index.html", "dbt_project.yml", "packages.yml", "package-lock.yml"]
-outputs = ["docs/index.html", "docs/dbt_docs/index.html", "docs/elementary_report/index.html"]
+description = "Build the dbt docs and Elementary report into docs/, alongside the static index.html landing page; skipped if nothing changed since the last build"
+sources = ["src/**/*", "dbt_project.yml", "packages.yml", "package-lock.yml"]
+outputs = ["docs/dbt_docs/index.html", "docs/elementary_report/index.html"]
 run = """
 mise run dbt:deps
 mise run dbt:docs
 mise run elementary:report
 mv -f docs/elementary_report/elementary_report.html docs/elementary_report/index.html
-cp web/index.html docs/index.html
 """
+
+[tasks."webapp:build:force"]
+description = "Force a full rebuild of the docs webapp, bypassing the up-to-date cache"
+run = "mise run --force webapp:build"
 
 [tasks."webapp:serve"]
 description = "Serve the built docs webapp locally"
