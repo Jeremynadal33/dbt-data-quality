@@ -1,9 +1,11 @@
 .env
 .venv/*
+__pycache__/
 
 target/
 dbt_packages/
 logs/
+edr_target/
 .user.yml
 
 docs/dbt_docs/

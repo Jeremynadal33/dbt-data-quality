@@ -1,0 +1,33 @@
+name: Generate daily demo data
+
+# Appends exactly one more clean day of history (generator_new_day) so the demo
+# warehouse keeps a long, real, all-green history between an initial `generator_history`
+# and the presentation itself — chaos scenarios are only ever run manually, on the day.
+#
+# NOTE: GitHub only evaluates `schedule` triggers from the workflow file as it exists on
+# the repository's default branch. This file lives on `pyramide`; the cron below won't
+# actually fire until this branch is merged (or made the default branch).
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  new-day:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare environment
+        uses: ./.github/actions/prepare-environment
+
+      - name: Install project dependencies
+        run: mise run setup
+
+      - name: Append one day and verify the history stays green
+        env:
+          DBT_SNOWFLAKE_ACCOUNT: ${{ secrets.DBT_SNOWFLAKE_ACCOUNT }}
+          DBT_SNOWFLAKE_PAT: ${{ secrets.DBT_SNOWFLAKE_PAT }}
+          DBT_TARGET: prod
+        run: mise run demo:new-day

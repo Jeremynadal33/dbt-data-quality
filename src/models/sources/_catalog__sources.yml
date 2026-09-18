@@ -1,0 +1,89 @@
+version: 2
+
+sources:
+  - name: raw_catalog
+    description: "Referentiel restaurants et cartes, produit par l'equipe Catalog."
+    database: jnadal_db
+    schema: raw
+    config:
+      meta:
+        owner: "@catalog-team"
+        alerts_config:
+          subscribers: ["mlegall@ippon.fr"]
+          alert_fields: [table, column, owners, tags, result_message, test_query]
+    tables:
+      - name: restaurants
+        description: >
+          Referentiel restaurants. synced_at est la date de synchronisation de la fiche
+          sur la plateforme (technique), decouplee de opened_at (date d'ouverture reelle,
+          immuable, jamais utilisee pour la fraicheur).
+        config:
+          loaded_at_field: synced_at
+          freshness:
+            warn_after: {count: 24, period: hour}
+            error_after: {count: 72, period: hour}
+        columns:
+          - name: restaurant_id
+            data_tests: [unique, not_null]
+          - name: siret
+            data_tests:
+              - dbt_expectations.expect_column_values_to_match_regex:
+                  arguments:
+                    regex: '^[0-9]{14}$'
+          - name: contact_email
+            data_tests:
+              - dbt_expectations.expect_column_values_to_match_regex:
+                  arguments:
+                    regex: '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+          - name: cuisine_type
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: [italian, japanese, french, indian, lebanese, mexican]
+
+      - name: menu_items
+        description: "Cartes des restaurants. Le schema est surveille par Elementary."
+        data_tests:
+          # from_baseline detecte des le 1er run (contrairement a schema_changes, qui
+          # exige 2 runs encadrant le changement). Le baseline vient du bloc `columns:`
+          # ci-dessous, pas d'un snapshot vivant -- toutes les colonnes doivent y figurer,
+          # y compris `label` qui ne porte par ailleurs aucun data_test.
+          - elementary.schema_changes_from_baseline:
+              arguments:
+                fail_on_added: true
+        columns:
+          - name: item_id
+            data_type: varchar
+            data_tests: [unique, not_null]
+          - name: restaurant_id
+            data_type: varchar
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('raw_catalog', 'restaurants')
+                    field: restaurant_id
+          - name: sku
+            data_type: varchar
+            data_tests:
+              - not_null
+              - dbt_expectations.expect_column_values_to_match_regex:
+                  arguments:
+                    regex: '^[A-Z]{3}-[0-9]{5}$'
+          - name: label
+            data_type: varchar
+            # Aucun data_test volontairement : c'est la colonne ciblee par le scenario
+            # chaos drop_column. Elle doit rester listee ici (avec son data_type) pour
+            # que schema_changes_from_baseline sache qu'elle existait.
+          - name: price_eur
+            data_type: number
+            data_tests:
+              - is_positive:
+                  config:
+                    severity: warn
+          - name: category
+            data_type: varchar
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: [starter, main, dessert, drink, side]

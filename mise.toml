@@ -1,10 +1,13 @@
 [env]
 _.file = ".env"
-DBT_TARGET = "{{ get_env(name='DBT_TARGET', default='local') }}"
+# prod par defaut : les modeles Elementary ne sont actives que sur ce target,
+# et local/prod pointent sur le meme Snowflake.
+DBT_TARGET = "{{ get_env(name='DBT_TARGET', default='prod') }}"
+DEMO_SLACK_CHANNEL = "{{ get_env(name='DEMO_SLACK_CHANNEL', default='demo-data-quality') }}"
 
 [tasks.setup]
-description = "Install Python dependencies (incl. Elementary)"
-run = "uv sync --group elementary"
+description = "Install Python dependencies (incl. Elementary and the data generator)"
+run = "uv sync --group elementary --group generator"
 
 [tasks."dbt:debug"]
 description = "Check the dbt connection to the warehouse"
@@ -49,6 +52,61 @@ run = "mise run --force webapp:build"
 description = "Serve the built docs webapp locally"
 depends = ["webapp:build"]
 run = "python3 -m http.server 8000 --directory docs"
+
+[tasks."demo:history"]
+description = "Load 30 clean days (ending yesterday) and refresh Elementary + the report"
+run = """
+uv run generator_history --days 30
+uv run dbt run -s elementary --target $DBT_TARGET
+uv run dbt test --target $DBT_TARGET
+mise run elementary:report
+"""
+
+[tasks."demo:new-day"]
+description = "Append one more clean day of history (run once a day, e.g. via GitHub Actions)"
+run = """
+uv run generator_new_day
+uv run dbt run -s elementary --target $DBT_TARGET
+uv run dbt test --target $DBT_TARGET
+"""
+
+[tasks."demo:scenario"]
+description = "Inject one chaos scenario then re-test (usage: mise run demo:scenario new_restaurant_volume)"
+run = """
+uv run generator_chaos_{{arg(name="scenario")}}
+uv run dbt run -s elementary --target $DBT_TARGET
+uv run dbt test --target $DBT_TARGET
+"""
+
+[tasks."demo:chaos"]
+description = "Run all 5 chaos scenarios in the create_chaos sequence, then re-test"
+run = """
+uv run generator_create_chaos
+uv run dbt run -s elementary --target $DBT_TARGET
+uv run dbt test --target $DBT_TARGET
+"""
+
+[tasks."demo:freshness"]
+description = "Run source freshness only (N2 - never covered by dbt test)"
+run = "uv run dbt source freshness --target $DBT_TARGET"
+
+[tasks."demo:status"]
+description = "Orders per day and restaurants freshness, to check the state before presenting"
+run = "uv run generator_status"
+
+[tasks."demo:alert"]
+description = "Send pending Elementary alerts to Slack"
+run = """
+uv run edr monitor \
+  --profiles-dir . --profile-target $DBT_TARGET \
+  --slack-token "$SLACK_BOT_TOKEN" \
+  --slack-channel-name "$DEMO_SLACK_CHANNEL" \
+  --days-back 1
+"""
+
+[tasks."demo:reset"]
+description = "Drop the raw schema"
+run = "uv run generator_reset"
 
 [tasks."ci:run"]
 description = "Reproduce the CI 'Run dbt project' step (debug, deps, run, test)"
