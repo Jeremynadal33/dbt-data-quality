@@ -9,7 +9,7 @@ name: Generate daily demo data
 # actually fire until this branch is merged (or made the default branch).
 on:
   schedule:
-    - cron: '0 6 * * *'
+    - cron: '0 6 * * 0,1,2,6'
   workflow_dispatch: {}
 
 jobs:

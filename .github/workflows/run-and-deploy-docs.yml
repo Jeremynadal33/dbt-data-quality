@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '0 0 * * *' 
+    - cron: '0 7 * * *' 
 
 permissions:
   contents: write
@@ -49,14 +49,11 @@ jobs:
 
       # Sync dbt and edr docs content only (we want to keep root CNAME/index.html/other static assets)
       # I use a temp dir gh-pages to avoid overwriting directly docs/
-      - name: Sync docs
+      - name: Configure git identity for the gh-pages commit
+        working-directory: gh-pages
         run: |
-          rm -rf gh-pages/docs/dbt_docs gh-pages/docs/elementary_report
-          cp -r docs/dbt_docs gh-pages/docs/
-          cp -r docs/elementary_report gh-pages/docs/
-          cd gh-pages
-          git add docs/dbt_docs docs/elementary_report
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -m "Update dbt & Elementary docs" || echo "No changes to commit"
-          git push origin gh-pages
+
+      - name: Sync docs
+        run: mise run docs:publish

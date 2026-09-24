@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import argparse
 
-from generator.domain import ORDER_LINE_COLUMNS
-from generator.utils.warehouse import DATABASE, RAW_SCHEMA, connect, execute, insert_rows
+from data_generator.domain import ORDER_LINE_COLUMNS
+from data_generator.utils.warehouse import DATABASE, RAW_SCHEMA, connect, execute, insert_rows
 
 ORDERS = f"{DATABASE}.{RAW_SCHEMA}.orders"
 ORDER_LINES = f"{DATABASE}.{RAW_SCHEMA}.order_lines"

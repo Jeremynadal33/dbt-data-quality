@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import argparse
 
-from generator.domain import MENU_ITEM_COLUMNS
-from generator.utils.warehouse import DATABASE, RAW_SCHEMA, connect, execute, insert_rows
+from data_generator.domain import MENU_ITEM_COLUMNS
+from data_generator.utils.warehouse import DATABASE, RAW_SCHEMA, connect, execute, insert_rows
 
 MENU_ITEMS = f"{DATABASE}.{RAW_SCHEMA}.menu_items"
 

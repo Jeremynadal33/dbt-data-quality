@@ -18,8 +18,8 @@ from datetime import timedelta
 
 from faker import Faker
 
-from generator import domain
-from generator.utils.warehouse import DATABASE, RAW_SCHEMA, connect, execute, insert_rows
+from data_generator import domain
+from data_generator.utils.warehouse import DATABASE, RAW_SCHEMA, connect, execute, insert_rows
 
 ORDERS = f"{DATABASE}.{RAW_SCHEMA}.orders"
 

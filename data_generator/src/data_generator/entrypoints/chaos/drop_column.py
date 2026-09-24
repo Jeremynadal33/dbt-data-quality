@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import argparse
 
-from generator.utils.warehouse import DATABASE, RAW_SCHEMA, connect, execute, execute_many_statements
+from data_generator.utils.warehouse import DATABASE, RAW_SCHEMA, connect, execute, execute_many_statements
 
 MENU_ITEMS = f"{DATABASE}.{RAW_SCHEMA}.menu_items"
 

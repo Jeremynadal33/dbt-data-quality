@@ -43,9 +43,9 @@ Chaque acte donne : l'objectif, le talking point, la commande exacte, et le rés
 ### Une seule fois, à l'initialisation (pas à refaire avant chaque présentation)
 
 - [ ] `mise run demo:reset && mise run demo:history` — charge les 30 premiers jours propres.
-- [ ] `uv run dbt run -s elementary --target prod && uv run dbt test --target prod` — attendu :
-      `Done. PASS=31 WARN=0 ERROR=0 SKIP=0 TOTAL=31`.
-- [ ] `mise run demo:freshness` — attendu : `PASS freshness of raw_catalog.restaurants`.
+      `demo:history` enchaîne déjà `demo:verify` (rebuild Elementary + `dbt test` +
+      `dbt source freshness`) en interne — attendu dans sa sortie : `Done. PASS=31 WARN=0
+      ERROR=0 SKIP=0 TOTAL=31` puis `PASS freshness of raw_catalog.restaurants`.
 - [ ] Vérifier que le workflow `.github/workflows/generate-daily-data.yml` tourne (cron
       quotidien, ou déclenchement manuel `workflow_dispatch` tant que `pyramide` n'est pas la
       branche par défaut — voir README). Chaque run ajoute un jour propre de plus, sans
@@ -56,8 +56,9 @@ Chaque acte donne : l'objectif, le talking point, la commande exacte, et le rés
 - [ ] `mise run demo:status` — vérifier que la dernière journée avec des commandes est bien
       **hier** (par rapport à maintenant) et que le restaurant le plus récemment synchronisé
       est à quelques heures.
-- [ ] Si le job quotidien a manqué un jour (dernière commande à J-2 ou plus) : `uv run
-      generator_new_day`, à répéter une fois par jour manquant jusqu'à rattraper hier.
+- [ ] Si le job quotidien a manqué un jour (dernière commande à J-2 ou plus) : `uv run --project
+      data_generator generator_new_day`, à répéter une fois par jour manquant jusqu'à rattraper
+      hier.
 - [ ] **Ne PAS relancer `demo:reset && demo:history`** le jour même — ça jetterait tout
       l'historique accumulé par les runs quotidiens.
 - [ ] `mise run webapp:build:force` puis `mise run webapp:serve` — filet de sécurité : si un
@@ -72,7 +73,7 @@ Chaque acte donne : l'objectif, le talking point, la commande exacte, et le rés
 restaurants/cartes, owner Mathieu) et Orders (commandes, owner moi). »
 
 ```bash
-uv run generator_status
+uv run --project data_generator generator_status
 ```
 **Résultat attendu** : ~30 lignes, une par jour, un panier moyen stable, et « most recently
 synced restaurant » à quelques heures.
@@ -87,18 +88,19 @@ malformation ligne par ligne, jamais un déséquilibre d'ensemble.
 ### 1.1 — `unique` sur `menu_items.item_id`
 
 ```bash
-uv run generator_chaos_duplicate_menu_item
-uv run dbt run -s elementary --target prod
-uv run dbt test --target prod
+uv run --project data_generator generator_chaos_duplicate_menu_item
+mise run demo:verify
 ```
 **Résultat attendu** :
 ```
 FAIL 1 source_unique_raw_catalog_menu_items_item_id
 Done. PASS=30 WARN=0 ERROR=1 SKIP=0 TOTAL=31
 ```
+(`demo:verify` lance aussi `dbt source freshness` — `PASS`, sans rapport avec ce scénario.)
+
 **Le `--store-failures`** — la ligne fautive, pas juste un compteur :
 ```bash
-uv run dbt show --target prod --inline \
+uv run --project dbt dbt show --project-dir dbt --profiles-dir dbt --target prod --inline \
   "select * from jnadal_db.dq_failures.source_unique_raw_catalog_menu_items_item_id"
 ```
 → 2 lignes avec le même `item_id` (l'originale + le clone injecté).
@@ -106,9 +108,8 @@ uv run dbt show --target prod --inline \
 ### 1.2 — `relationships` sur `order_lines.item_id → menu_items.item_id`
 
 ```bash
-uv run generator_chaos_orphan_menu_item
-uv run dbt run -s elementary --target prod
-uv run dbt test --target prod
+uv run --project data_generator generator_chaos_orphan_menu_item
+mise run demo:verify
 ```
 **Résultat attendu** :
 ```
@@ -122,10 +123,9 @@ unique_combination_of_columns(order_id, line_id)` sur `order_lines`, les regex
 `dbt_expectations` sur `siret`/`contact_email`/`sku`, `accepted_values` sur `cuisine_type`/
 `status`/`category` — tous déclarés et verts sur l'historique propre.)
 
-**Repartir propre avant l'Acte 2** :
+**Repartir propre avant l'Acte 2** (`demo:history` enchaîne déjà `demo:verify`) :
 ```bash
 mise run demo:reset && mise run demo:history
-uv run dbt run -s elementary --target prod && uv run dbt test --target prod
 ```
 
 ---
@@ -136,21 +136,21 @@ uv run dbt run -s elementary --target prod && uv run dbt test --target prod
 synchronisée.
 
 ```bash
-uv run generator_chaos_late_restaurant
-mise run demo:freshness
+uv run --project data_generator generator_chaos_late_restaurant
+mise run demo:verify
 ```
-**Résultat attendu** :
+**Résultat attendu** — une seule commande, deux résultats côte à côte :
 ```
+Done. PASS=31 WARN=0 ERROR=0 SKIP=0 TOTAL=31        <- dbt test, inchangé
 1 of 1 ERROR STALE freshness of raw_catalog.restaurants
 ```
-**À dire** : « Si on relance `dbt test`, tout reste vert — `unique`, `not_null`,
-`accepted_values` ne regardent jamais l'horloge. » (Optionnel : `uv run dbt test --target prod`
-pour le prouver — 31/31 PASS malgré la fiche gelée.)
+**À dire** : « `dbt test` reste 31/31 vert — `unique`, `not_null`, `accepted_values` ne
+regardent jamais l'horloge. Mais `dbt source freshness`, dans cette même commande, le voit
+tout de suite. »
 
 **Repartir propre avant l'Acte 3** :
 ```bash
 mise run demo:reset && mise run demo:history
-uv run dbt run -s elementary --target prod
 ```
 
 ---
@@ -163,8 +163,7 @@ uv run dbt run -s elementary --target prod
 ### 3.1 — Le point de départ : tout est vert
 
 ```bash
-uv run dbt test --target prod
-mise run demo:freshness
+mise run demo:verify
 ```
 **Résultat attendu** : `PASS=31 WARN=0 ERROR=0 SKIP=0 TOTAL=31`, freshness `PASS`.
 
@@ -173,10 +172,9 @@ mise run demo:freshness
 ### 3.2 — Injecter les deux anomalies (une seule fois, cumulées)
 
 ```bash
-uv run generator_chaos_new_restaurant_volume
-uv run generator_chaos_drop_column
-uv run dbt run -s elementary --target prod
-uv run dbt test --target prod
+uv run --project data_generator generator_chaos_new_restaurant_volume
+uv run --project data_generator generator_chaos_drop_column
+mise run demo:verify
 ```
 **Résultat attendu (vérifié)** :
 ```
@@ -198,7 +196,7 @@ Done. PASS=29 WARN=0 ERROR=2 SKIP=0 TOTAL=31
 ### 3.3 — (optionnel) Zoomer sur le z-score
 
 ```bash
-uv run dbt show --target prod --inline \
+uv run --project dbt dbt show --project-dir dbt --profiles-dir dbt --target prod --inline \
   "select ordered_at::date as day, count(*) as n from jnadal_db.raw.orders \
    where ordered_at >= dateadd(day, -5, sysdate()::date) group by 1 order by 1"
 ```
@@ -246,8 +244,10 @@ sources, et — si le rapport le permet — le graphe de la métrique de volume 
 
 ## Annexe A — Les 5 scénarios de chaos, résultats vérifiés
 
-Chaque scénario testé isolément (reset + history avant, `dbt run -s elementary` +
-`dbt test`/`demo:freshness` après) casse **exactement** le test attendu, rien d'autre.
+Chaque scénario testé isolément (reset + history avant, `mise run demo:verify` après) casse
+**exactement** le test attendu, rien d'autre. Pas de tâche `mise` pour lancer un seul scénario :
+utiliser directement son script (`uv run --project data_generator generator_chaos_<nom>`) —
+`mise run demo:chaos` reste la seule tâche wrappée, et enchaîne les 5 d'un coup.
 
 | Scénario | Casse | Résultat exact vérifié | Owner |
 |---|---|---|---|
@@ -290,15 +290,6 @@ autres scénarios n'ont aucune contrainte d'ordre entre eux (tables/lignes disjo
 - **Besoin de tout remettre à zéro immédiatement** :
   ```bash
   mise run demo:reset && mise run demo:history
-  uv run dbt run -s elementary --target prod && uv run dbt test --target prod
   ```
 - **Un scénario individuel à rejouer proprement** : toujours repartir d'un `demo:reset &&
   demo:history` avant — les scénarios ne sont conçus isolés que contre un historique frais.
-- **Besoin de regénérer le jour même de la présentation, sans attendre le backfill de 30
-  jours** : `uv run generator_reset && uv run generator_history --recent-only` (hier +
-  aujourd'hui seulement). N1 (`duplicate_menu_item`, `orphan_menu_item`) et N2
-  (`late_restaurant`) restent parfaitement démontrables. **Attention** : dans ce mode,
-  `elementary.volume_anomalies` échoue systématiquement (faux positif) dès le
-  `dbt test` suivant, même sans lancer `new_restaurant_volume` — sa fenêtre de 30 jours
-  se retrouve remplie de zéros sur les 29 jours sans commande, donc le volume réel d'hier
-  ressort comme un pic. À réserver aux répétitions de l'Acte 1/2, pas de l'Acte 3.

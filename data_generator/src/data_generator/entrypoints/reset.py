@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import argparse
 
-from generator import domain
-from generator.utils.warehouse import connect
+from data_generator import domain
+from data_generator.utils.warehouse import connect
 
 default_config: dict = {}
 

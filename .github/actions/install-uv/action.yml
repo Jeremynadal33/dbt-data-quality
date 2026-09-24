@@ -8,14 +8,14 @@ inputs:
     default: "0.6.9"
 
   cache_dependency_glob:
-    description: "File of the uv.lock file to use for caching"
+    description: "Glob of the uv.lock files to use for caching (two independent projects: dbt/, data_generator/)"
     required: false
-    default: "uv.lock"
+    default: "**/uv.lock"
 
   python_version_file:
-    description: "Path to the Python version file"
+    description: "Path to the Python version file (same Python version pinned in both sub-projects)"
     required: false
-    default: ".python-version"
+    default: "dbt/.python-version"
 
 runs:
   using: "composite"

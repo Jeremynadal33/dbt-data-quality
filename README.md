@@ -13,7 +13,8 @@ des défauts ciblés. Le script de présentation complet est dans [`DEMO.md`](./
 - [`uv`](https://docs.astral.sh/uv/getting-started/installation/) — package manager Python
   (installé automatiquement via `mise` au premier `mise run`, sinon `pip install uv`).
 - Accès à un warehouse Snowflake (base `jnadal_db`, rôle `r_jnadal` par défaut — adapter
-  `profiles.yml`/`generator/utils/warehouse.py` si tu utilises un autre compte).
+  `dbt/profiles.yml`/`data_generator/src/data_generator/utils/warehouse.py` si tu utilises un
+  autre compte).
 
 ### Installation
 
@@ -25,9 +26,14 @@ cp .env.example .env  # si présent, sinon crée .env directement (voir ci-desso
 mise run setup        # uv sync : installe dbt, Elementary et le générateur
 ```
 
-`mise run setup` construit aussi le package `generator/` et installe ses commandes dans
-`.venv/bin/` (`generator_history`, `generator_reset`, `generator_create_chaos`,
-`generator_chaos_*`) — vérifiable avec `ls .venv/bin | grep generator_`.
+Deux projets `uv` indépendants, chacun avec son propre `.venv` : `dbt/` (dbt + le CLI
+Elementary `edr`) et `data_generator/` (le générateur Python). `mise run setup` installe les
+deux (`uv sync --project dbt` puis `uv sync --project data_generator`) ; `mise.toml` orchestre
+tout depuis la racine sans jamais `cd`, via `uv run --project <dbt|data_generator> ...`.
+
+`mise run setup` construit aussi le package `data_generator/` et installe ses commandes dans
+`data_generator/.venv/bin/` (`generator_history`, `generator_reset`, `generator_create_chaos`,
+`generator_chaos_*`) — vérifiable avec `ls data_generator/.venv/bin | grep generator_`.
 
 ### Variables d'environnement (`.env`, jamais commité)
 
@@ -47,8 +53,10 @@ mise run demo:history  # charge 30 jours de donnees propres + rafraichit Element
 mise run demo:status   # verifie l'etat (commandes/jour, fraicheur) avant de presenter
 ```
 
-Pour dérouler la démo complète (les 5 scénarios de chaos, un par un ou tous en une fois via
-`mise run demo:chaos`), suis [`DEMO.md`](./DEMO.md).
+Pour dérouler la démo complète, suis [`DEMO.md`](./DEMO.md) — chaque scénario de chaos y est
+déclenché individuellement en appelant directement son script (`uv run --project data_generator
+generator_chaos_<nom>`), pas via une tâche `mise` dédiée : `mise` n'expose que `demo:chaos`, qui
+enchaîne les 5 scénarios d'un coup.
 
 ### Tâches utiles
 
@@ -56,14 +64,16 @@ Pour dérouler la démo complète (les 5 scénarios de chaos, un par un ou tous 
 |---|---|
 | `mise tasks` | liste toutes les tâches disponibles |
 | `mise run demo:history` | (re)charge un historique propre de 30 jours |
-| `uv run generator_new_day` | ajoute une journée propre supplémentaire à l'historique (job quotidien, voir plus bas) |
-| `mise run demo:scenario <nom>` | injecte un seul scénario de chaos puis re-teste |
-| `mise run demo:chaos` | injecte les 5 scénarios de chaos dans l'ordre sûr, puis re-teste |
-| `mise run demo:scenarios` | liste les 5 scénarios disponibles |
-| `mise run demo:freshness` | vérifie la fraîcheur de `raw_catalog.restaurants` |
+| `uv run --project data_generator generator_new_day` | ajoute une journée propre à l'historique (job quotidien, voir plus bas) |
+| `mise run demo:verify` | reconstruit les modèles Elementary et rejoue `dbt test` + `dbt source freshness` |
+| `mise run demo:chaos` | injecte les 5 scénarios de chaos dans l'ordre sûr, puis re-teste et alerte |
 | `mise run demo:alert` | envoie les alertes Elementary en attente vers Slack |
 | `mise run demo:reset` | supprime le schéma `raw` |
 | `mise run webapp:serve` | construit et sert en local les dbt docs + le rapport Elementary |
+
+Pas de tâche `mise` pour lancer un seul scénario de chaos à la fois : ça multipliait les tâches
+pour un simple alias de `uv run --project data_generator generator_chaos_<nom>`. Utilise le
+script directement (voir `DEMO.md`), ou `mise run demo:chaos` pour les 5 d'un coup.
 
 ## Historique quotidien
 
@@ -74,8 +84,8 @@ Les scénarios de chaos ne sont joués que le jour de la présentation, jamais p
 
 `generator_new_day` :
 - ajoute exactement un jour (le lendemain du dernier jour présent dans `orders`) ;
-- rafraîchit le `synced_at` du restaurant "dormant" (voir `generator/domain.py`) pour que le
-  freshness reste vert chaque jour ;
+- rafraîchit le `synced_at` du restaurant "dormant" (voir
+  `data_generator/src/data_generator/domain.py`) pour que le freshness reste vert chaque jour ;
 - échoue explicitement (au lieu de dupliquer des données) si `orders` contient déjà des
   données pour aujourd'hui.
 
@@ -86,7 +96,18 @@ définie comme branche par défaut), le cron ne se déclenchera pas tout seul �
 
 ## Développer le générateur
 
-Le code du générateur vit dans `generator/` : `domain.py` (schéma + génération Faker),
-`entrypoints/` (un module par commande, voir le pattern dans
-`entrypoints/history.py`), `entrypoints/chaos/` (les 5 scénarios). Chaque entrypoint est
-directement appelable en Python (`entrypoint(**kwargs)`) ou en CLI via son script installé.
+Projet indépendant sous `data_generator/` (son propre `pyproject.toml`, son propre `.venv`).
+Le code vit dans `data_generator/src/data_generator/` : `domain.py` (schéma + génération
+Faker), `entrypoints/` (un module par commande, voir le pattern dans `entrypoints/history.py`),
+`entrypoints/chaos/` (les 5 scénarios). Chaque entrypoint est directement appelable en Python
+(`entrypoint(**kwargs)`) ou en CLI via son script installé (`uv run --project data_generator
+generator_<nom>`, ou directement `generator_<nom>` une fois le venv activé).
+
+## Le projet dbt
+
+Sous `dbt/` : `dbt_project.yml`, `profiles.yml`, `packages.yml`, `src/` (uniquement des
+`sources:` avec des tests dessus — zéro modèle). Son propre `pyproject.toml`
+(`dbt-snowflake` + `elementary-data`) et son propre `.venv`. Toute commande dbt/edr passe par
+`--project-dir dbt --profiles-dir dbt` (voir les tâches `dbt:*`/`demo:*` de `mise.toml`) plutôt
+que par un `cd dbt` — ça garde les chemins de sortie (`docs/dbt_docs`, `docs/elementary_report`)
+relatifs à la racine du repo, inchangés pour le déploiement gh-pages.

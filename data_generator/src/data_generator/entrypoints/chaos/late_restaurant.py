@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import argparse
 
-from generator.utils.warehouse import DATABASE, RAW_SCHEMA, connect
+from data_generator.utils.warehouse import DATABASE, RAW_SCHEMA, connect
 
 RESTAURANTS = f"{DATABASE}.{RAW_SCHEMA}.restaurants"
 

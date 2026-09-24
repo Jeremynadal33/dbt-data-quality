@@ -29,7 +29,7 @@ from datetime import date, datetime, timedelta
 
 from faker import Faker
 
-from generator.utils.warehouse import DATABASE, RAW_SCHEMA, execute, execute_many_statements, insert_rows
+from data_generator.utils.warehouse import DATABASE, RAW_SCHEMA, execute, execute_many_statements, insert_rows
 
 RESTAURANT_COLUMNS = (
     "restaurant_id", "name", "city", "cuisine_type",

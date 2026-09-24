@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import argparse
 
-from generator.entrypoints.chaos import (
+from data_generator.entrypoints.chaos import (
     drop_column,
     duplicate_menu_item,
     late_restaurant,
