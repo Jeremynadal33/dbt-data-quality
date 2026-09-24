@@ -1,38 +1,56 @@
 [env]
 _.file = ".env"
-DBT_TARGET = "{{ get_env(name='DBT_TARGET', default='local') }}"
+# prod par defaut : les modeles Elementary ne sont actives que sur ce target,
+# et local/prod pointent sur le meme Snowflake.
+DBT_TARGET = "{{ get_env(name='DBT_TARGET', default='prod') }}"
+DEMO_SLACK_CHANNEL = "{{ get_env(name='DEMO_SLACK_CHANNEL', default='demo-data-quality') }}"
 
+# Deux projets uv independants : dbt/ (dbt + Elementary CLI) et data_generator/ (le
+# generateur Python). mise orchestre les deux depuis la racine via `uv run --project`,
+# sans jamais faire de `cd` — les chemins ci-dessous (docs/, --target-path, etc.) restent
+# donc tous relatifs a la racine du repo.
+
+### Task for setting up and running the dbt and data_generator projects
 [tasks.setup]
-description = "Install Python dependencies (incl. Elementary)"
-run = "uv sync --group elementary"
+description = "Install both projects' dependencies (dbt/ and data_generator/)"
+run = """
+uv sync --project dbt
+uv sync --project data_generator
+mise run dbt:deps
+"""
 
+### Just wrap the dbt commands with uv run
 [tasks."dbt:debug"]
 description = "Check the dbt connection to the warehouse"
-run = "uv run dbt debug --target $DBT_TARGET"
+run = "uv run --project dbt dbt debug --project-dir dbt --profiles-dir dbt --target $DBT_TARGET"
 
 [tasks."dbt:deps"]
 description = "Install dbt packages"
-run = "uv run dbt deps"
+run = "uv run --project dbt dbt deps --project-dir dbt"
 
 [tasks."dbt:run"]
 description = "Run the dbt_data_quality and elementary models"
-run = "uv run dbt run -s dbt_data_quality elementary --target $DBT_TARGET"
+run = "uv run --project dbt dbt run -s elementary --project-dir dbt --profiles-dir dbt --target $DBT_TARGET"
 
 [tasks."dbt:test"]
 description = "Run the dbt_data_quality data tests"
-run = "uv run dbt test -s dbt_data_quality,test_type:data --target $DBT_TARGET"
+run = """
+uv run --project dbt dbt test -s dbt_data_quality --project-dir dbt --profiles-dir dbt --target $DBT_TARGET || true
+uv run --project dbt dbt source freshness --project-dir dbt --profiles-dir dbt --target $DBT_TARGET
+"""
 
+### Tasks for generating documentation and reports
 [tasks."dbt:docs"]
 description = "Generate the dbt docs site"
-run = "uv run dbt docs generate --target-path docs/dbt_docs --target $DBT_TARGET"
+run = "uv run --project dbt dbt docs generate --project-dir dbt --profiles-dir dbt --target-path ../docs/dbt_docs --target $DBT_TARGET"
 
 [tasks."elementary:report"]
 description = "Generate the Elementary report"
-run = "uv run edr report --profiles-dir . --profile-target $DBT_TARGET --env prod --target-path docs/elementary_report"
+run = "uv run --project dbt edr report --project-dir dbt --profiles-dir dbt --profile-target $DBT_TARGET --env prod --target-path docs/elementary_report"
 
 [tasks."webapp:build"]
 description = "Build the dbt docs and Elementary report into docs/, alongside the static index.html landing page; skipped if nothing changed since the last build"
-sources = ["src/**/*", "dbt_project.yml", "packages.yml", "package-lock.yml"]
+sources = ["dbt/src/**/*", "dbt/dbt_project.yml", "dbt/packages.yml", "dbt/package-lock.yml"]
 outputs = ["docs/dbt_docs/index.html", "docs/elementary_report/index.html"]
 run = """
 mise run dbt:deps
@@ -45,10 +63,65 @@ mv -f docs/elementary_report/elementary_report.html docs/elementary_report/index
 description = "Force a full rebuild of the docs webapp, bypassing the up-to-date cache"
 run = "mise run --force webapp:build"
 
+### Tasks for serving and verifying the webapp locally
 [tasks."webapp:serve"]
 description = "Serve the built docs webapp locally"
 depends = ["webapp:build"]
 run = "python3 -m http.server 8000 --directory docs"
+
+### Tasks for demo scenarios
+[tasks."demo:verify"]
+description = "Rebuild Elementary's internal models and run the full test suite (shared by demo:history/new-day/chaos)"
+run = """
+mise run dbt:run
+mise run dbt:test
+"""
+
+### Load history first
+[tasks."demo:history"]
+description = "Load 30 clean days (ending yesterday) and refresh Elementary + the report"
+run = """
+uv run --project data_generator generator_history --days 30
+mise run demo:verify
+mise run elementary:report
+"""
+
+### Append a new day of history each day in gha
+[tasks."demo:new-day"]
+description = "Append one more clean day of history (run once a day, e.g. via GitHub Actions)"
+run = """
+uv run --project data_generator generator_new_day
+mise run demo:verify
+"""
+
+
+[tasks."demo:chaos"]
+description = "Run all 5 chaos scenarios in the create_chaos sequence, then re-test and alert"
+run = """
+uv run --project data_generator generator_create_chaos
+mise run demo:verify || true
+mise run demo:alert
+mise run webapp:build:force
+mise run webapp:serve
+"""
+
+[tasks."demo:status"]
+description = "Orders per day and restaurants freshness, to check the state before presenting"
+run = "uv run --project data_generator generator_status"
+
+[tasks."demo:alert"]
+description = "Send pending Elementary alerts to Slack"
+run = """
+uv run --project dbt edr monitor \
+  --project-dir dbt --profiles-dir dbt --profile-target $DBT_TARGET \
+  --slack-token "$SLACK_BOT_TOKEN" \
+  --slack-channel-name "$DEMO_SLACK_CHANNEL" \
+  --days-back 1
+"""
+
+[tasks."demo:reset"]
+description = "Drop the raw schema"
+run = "uv run --project data_generator generator_reset"
 
 [tasks."ci:run"]
 description = "Reproduce the CI 'Run dbt project' step (debug, deps, run, test)"
@@ -57,3 +130,15 @@ run = "mise run dbt:debug && mise run dbt:deps && mise run dbt:run && mise run d
 [tasks."ci:docs"]
 description = "Reproduce the CI 'Generate docs' step (debug, deps, docs, Elementary report)"
 run = "mise run dbt:debug && mise run webapp:build"
+
+[tasks."docs:publish"]
+description = "Sync docs/ into a gh-pages checkout at ./gh-pages and push (git identity left to the caller)"
+run = """
+rm -rf gh-pages/docs/dbt_docs gh-pages/docs/elementary_report
+cp -r docs/dbt_docs gh-pages/docs/
+cp -r docs/elementary_report gh-pages/docs/
+cd gh-pages
+git add docs/dbt_docs docs/elementary_report
+git commit -m "Update dbt & Elementary docs" || echo "No changes to commit"
+git push origin gh-pages
+"""

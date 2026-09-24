@@ -9,8 +9,9 @@ runs:
       with:
         path: |
           ~/.cache/uv
-          .venv
-        key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+          dbt/.venv
+          data_generator/.venv
+        key: ${{ runner.os }}-uv-${{ hashFiles('dbt/uv.lock', 'dbt/pyproject.toml', 'data_generator/uv.lock', 'data_generator/pyproject.toml') }}
         restore-keys: |
           ${{ runner.os }}-uv
 

@@ -1,0 +1,76 @@
+version: 2
+
+sources:
+  - name: raw_orders
+    description: "Flux transactionnel des commandes, produit par l'equipe Orders."
+    database: jnadal_db
+    schema: raw
+    config:
+      meta:
+        owner: "@orders-team"
+        alerts_config:
+          subscribers: ["jnadal@ippon.fr"]
+          alert_fields: [table, column, owners, subscribers, tags, result_message, test_query]
+    tables:
+      - name: orders
+        description: >
+          Une ligne par commande. Alimente en continu. Pas de freshness ici : elle vit
+          sur raw_catalog.restaurants (voir generator.domain).
+        data_tests:
+          - elementary.volume_anomalies:
+              arguments:
+                timestamp_column: ordered_at
+                days_back: 30
+        columns:
+          - name: order_id
+            data_tests: [unique, not_null]
+          - name: restaurant_id
+            data_tests:
+              - not_null:
+                  config:
+                    warn_if: ">0"
+                    error_if: ">10"
+              - relationships:
+                  arguments:
+                    to: source('raw_catalog', 'restaurants')
+                    field: restaurant_id
+          - name: ordered_at
+            data_tests: [not_null]
+          - name: status
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: [placed, preparing, delivered, cancelled]
+          - name: total_amount_eur
+            data_tests:
+              - is_positive
+              - elementary.column_anomalies:
+                  arguments:
+                    column_anomalies: [average, standard_deviation]
+                    timestamp_column: ordered_at
+                    days_back: 30
+
+      - name: order_lines
+        description: "Lignes de commande, grain (order_id, line_id)."
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [order_id, line_id]
+        columns:
+          - name: order_id
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('raw_orders', 'orders')
+                    field: order_id
+          - name: item_id
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('raw_catalog', 'menu_items')
+                    field: item_id
+          - name: quantity
+            data_tests: [is_positive]
+          - name: unit_price_eur
+            data_tests: [is_positive]
