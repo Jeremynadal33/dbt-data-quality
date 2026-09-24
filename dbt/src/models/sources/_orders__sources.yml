@@ -10,7 +10,7 @@ sources:
         owner: "@orders-team"
         alerts_config:
           subscribers: ["jnadal@ippon.fr"]
-          alert_fields: [table, column, owners, tags, result_message, test_query]
+          alert_fields: [table, column, owners, subscribers, tags, result_message, test_query]
     tables:
       - name: orders
         description: >
