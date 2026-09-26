@@ -32,6 +32,10 @@ run = "uv run --project dbt dbt deps --project-dir dbt"
 description = "Run the dbt_data_quality and elementary models"
 run = "uv run --project dbt dbt run -s elementary --project-dir dbt --profiles-dir dbt --target $DBT_TARGET"
 
+[tasks."dbt:compile"]
+description = "Compile the dbt project (tests' SQL lands in dbt/target/compiled)"
+run = "uv run --project dbt dbt compile --project-dir dbt --profiles-dir dbt --target $DBT_TARGET"
+
 [tasks."dbt:test"]
 description = "Run the dbt_data_quality data tests"
 run = """
@@ -105,6 +109,32 @@ mise run webapp:build:force
 mise run webapp:serve
 """
 
+### Single chaos scenarios, meant to be replayed one by one against fresh history
+[tasks."demo:chaos:duplicate-menu-item"]
+description = "Chaos N1: duplicate a menu_items row (breaks unique on item_id)"
+run = "uv run --project data_generator generator_chaos_duplicate_menu_item"
+
+[tasks."demo:chaos:orphan-menu-item"]
+description = "Chaos N1: add an order line pointing to a missing menu item (breaks relationships)"
+run = "uv run --project data_generator generator_chaos_orphan_menu_item"
+
+[tasks."demo:chaos:late-restaurant"]
+description = "Chaos N2: freeze a restaurant's synced_at (breaks source freshness)"
+run = "uv run --project data_generator generator_chaos_late_restaurant"
+
+[tasks."demo:chaos:new-restaurant-volume"]
+description = "Chaos N3: burst of orders for the dormant restaurant (breaks volume_anomalies)"
+run = "uv run --project data_generator generator_chaos_new_restaurant_volume"
+
+[tasks."demo:chaos:drop-column"]
+description = "Chaos N3: drop menu_items.label (breaks schema_changes_from_baseline); run after duplicate-menu-item"
+run = "uv run --project data_generator generator_chaos_drop_column"
+
+[tasks."demo:failures"]
+description = "Show the failing rows stored by store_failures for a given test"
+usage = 'arg "<test_name>" help="Test name, e.g. source_unique_raw_catalog_menu_items_item_id"'
+run = 'uv run --project dbt dbt show --project-dir dbt --profiles-dir dbt --target $DBT_TARGET --inline "select * from jnadal_db.dq_failures.{{usage.test_name}}"'
+
 [tasks."demo:status"]
 description = "Orders per day and restaurants freshness, to check the state before presenting"
 run = "uv run --project data_generator generator_status"
@@ -134,11 +164,13 @@ run = "mise run dbt:debug && mise run webapp:build"
 [tasks."docs:publish"]
 description = "Sync docs/ into a gh-pages checkout at ./gh-pages and push (git identity left to the caller)"
 run = """
-rm -rf gh-pages/docs/dbt_docs gh-pages/docs/elementary_report
+rm -rf gh-pages/docs/dbt_docs gh-pages/docs/elementary_report gh-pages/docs/presentation
 cp -r docs/dbt_docs gh-pages/docs/
 cp -r docs/elementary_report gh-pages/docs/
+cp -r docs/presentation gh-pages/docs/
+cp docs/index.html gh-pages/docs/
 cd gh-pages
-git add docs/dbt_docs docs/elementary_report
+git add docs/dbt_docs docs/elementary_report docs/presentation docs/index.html
 git commit -m "Update dbt & Elementary docs" || echo "No changes to commit"
 git push origin gh-pages
 """
