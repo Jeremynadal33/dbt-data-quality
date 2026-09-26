@@ -3,8 +3,7 @@
 Clones the first menu_items row (by item_id, deterministic so the demo always talks
 about the same item) verbatim into a new row: same item_id, and every other column
 copied from a value that was already valid. Nothing else changes, so no other test
-reacts — not the regex on sku, not accepted_values on category, not is_positive on
-price_eur.
+reacts — not accepted_values on category, not is_positive on price_eur.
 """
 
 from __future__ import annotations
@@ -27,7 +26,7 @@ def entrypoint(**kwargs) -> str:
     with connect() as conn:
         rows = execute(
             conn,
-            f"select item_id, restaurant_id, sku, label, price_eur, category "
+            f"select item_id, restaurant_id, label, price_eur, category "
             f"from {MENU_ITEMS} order by item_id limit 1",
         )
         if not rows:

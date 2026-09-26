@@ -33,9 +33,9 @@ from data_generator.utils.warehouse import DATABASE, RAW_SCHEMA, execute, execut
 
 RESTAURANT_COLUMNS = (
     "restaurant_id", "name", "city", "cuisine_type",
-    "siret", "contact_email", "opened_at", "synced_at",
+    "contact_email", "opened_at", "synced_at",
 )
-MENU_ITEM_COLUMNS = ("item_id", "restaurant_id", "sku", "label", "price_eur", "category")
+MENU_ITEM_COLUMNS = ("item_id", "restaurant_id", "label", "price_eur", "category")
 ORDER_COLUMNS = ("order_id", "restaurant_id", "customer_id", "ordered_at", "status", "total_amount_eur")
 ORDER_LINE_COLUMNS = ("order_id", "line_id", "item_id", "quantity", "unit_price_eur")
 
@@ -43,11 +43,6 @@ CUISINE_TYPES = ("italian", "japanese", "french", "indian", "lebanese", "mexican
 MENU_CATEGORIES = ("starter", "main", "dessert", "drink", "side")
 ORDER_STATUSES = ("placed", "preparing", "delivered", "cancelled")
 STATUS_WEIGHTS = (5, 8, 80, 7)
-
-_CUISINE_SKU_PREFIX = {
-    "italian": "ITA", "japanese": "JPN", "french": "FRE",
-    "indian": "IND", "lebanese": "LEB", "mexican": "MEX",
-}
 
 RESTAURANT_COUNT = 50
 ITEMS_PER_RESTAURANT = 12
@@ -69,10 +64,10 @@ _INIT_DDL = (
     f"create schema if not exists {DATABASE}.{RAW_SCHEMA}",
     f"""create or replace table {DATABASE}.{RAW_SCHEMA}.restaurants (
         restaurant_id varchar, name varchar, city varchar, cuisine_type varchar,
-        siret varchar, contact_email varchar, opened_at date, synced_at timestamp_ntz
+        contact_email varchar, opened_at date, synced_at timestamp_ntz
     )""",
     f"""create or replace table {DATABASE}.{RAW_SCHEMA}.menu_items (
-        item_id varchar, restaurant_id varchar, sku varchar, label varchar,
+        item_id varchar, restaurant_id varchar, label varchar,
         price_eur number(10, 2), category varchar
     )""",
     f"""create or replace table {DATABASE}.{RAW_SCHEMA}.orders (
@@ -124,19 +119,16 @@ def _generate_catalog(faker: Faker, rng: random.Random) -> tuple[list[list], lis
                 faker.company(),
                 faker.city(),
                 cuisine,
-                str(rng.randint(10**13, 10**14 - 1)),  # 14-digit SIRET
                 faker.company_email(),
                 opened_at,
             ]
         )
-        prefix = _CUISINE_SKU_PREFIX[cuisine]
         for item_seq in range(1, ITEMS_PER_RESTAURANT + 1):
             item_id = f"I-{(index - 1) * ITEMS_PER_RESTAURANT + item_seq:06d}"
             menu_items.append(
                 [
                     item_id,
                     restaurant_id,
-                    f"{prefix}-{item_seq:05d}",
                     faker.word().capitalize(),
                     round(rng.uniform(*ITEM_PRICE_RANGE), 2),
                     rng.choice(MENU_CATEGORIES),
@@ -168,7 +160,7 @@ def _synced_at_values(restaurant_count: int, now: datetime, rng: random.Random) 
 
 def _items_by_restaurant(menu_items: list[list]) -> dict[str, list[tuple[str, float]]]:
     by_restaurant: dict[str, list[tuple[str, float]]] = {}
-    for item_id, restaurant_id, _sku, _label, price_eur, _category in menu_items:
+    for item_id, restaurant_id, _label, price_eur, _category in menu_items:
         by_restaurant.setdefault(restaurant_id, []).append((item_id, float(price_eur)))
     return by_restaurant
 

@@ -25,11 +25,6 @@ sources:
         columns:
           - name: restaurant_id
             data_tests: [unique, not_null]
-          - name: siret
-            data_tests:
-              - dbt_expectations.expect_column_values_to_match_regex:
-                  arguments:
-                    regex: '^[0-9]{14}$'
           - name: contact_email
             data_tests:
               - dbt_expectations.expect_column_values_to_match_regex:
@@ -63,13 +58,6 @@ sources:
                   arguments:
                     to: source('raw_catalog', 'restaurants')
                     field: restaurant_id
-          - name: sku
-            data_type: varchar
-            data_tests:
-              - not_null
-              - dbt_expectations.expect_column_values_to_match_regex:
-                  arguments:
-                    regex: '^[A-Z]{3}-[0-9]{5}$'
           - name: label
             data_type: varchar
             # Aucun data_test volontairement : c'est la colonne ciblee par le scenario
