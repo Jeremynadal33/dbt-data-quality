@@ -13,9 +13,13 @@ The fictional domain is a restaurant marketplace with two owning teams: Catalog
 injects 5 targeted "chaos" scenarios, each designed to break exactly one specific test.
 
 The demo's narrative (a "trust pyramid": valid → present → plausible → actionable) and the
-exact expected output of every scenario are documented in `DEMO.md` — read it before touching
-anything under `dbt/src/models/sources/` or `data_generator/src/data_generator/entrypoints/chaos/`,
-since the two must stay in sync with what `DEMO.md` claims.
+expected outcome of every scenario are presented in `docs/presentation/index.html` — read it
+before touching anything under `dbt/src/models/sources/` or
+`data_generator/src/data_generator/entrypoints/chaos/`, since the two must stay in sync with
+what the slides claim.
+
+`dbt/charts/` holds business dashboards ([dbt Charts](https://docs.dbtcharts.com/)) built on
+the same sources — they are a side showcase, not part of the data-quality narrative.
 
 ## Repo layout
 
@@ -24,8 +28,11 @@ repo root by `mise.toml` — commands always run via `uv run --project <dbt|data
 from the root, never via `cd`, so that dbt's output paths (`docs/dbt_docs`,
 `docs/elementary_report`) stay relative to the repo root (required for the gh-pages deploy).
 
-- `dbt/` — the dbt project (`dbt-snowflake` + `elementary-data`). Sources live in
-  `dbt/src/models/sources/_catalog__sources.yml` and `_orders__sources.yml`.
+- `dbt/` — the dbt project (`dbt-snowflake` + `elementary-data` + `dbt-charts`). Sources live
+  in `dbt/src/models/sources/_catalog__sources.yml` and `_orders__sources.yml`.
+  - `dbt/charts/` — dbt Charts boards (`index.yml` landing, `restaurant_insights.yml`,
+    `meta.yml` = project-wide theme); `dbt/dbt_charts.yml` declares the `snowflake` source as
+    a `dbt_profile` reusing `dbt/profiles.yml`.
 - `data_generator/` — the Python generator. Code is under
   `data_generator/src/data_generator/`:
   - `domain.py` — schema DDL + Faker-based generation logic.
@@ -35,8 +42,9 @@ from the root, never via `cd`, so that dbt's output paths (`docs/dbt_docs`,
   - `entrypoints/chaos/` — the 5 chaos scenario scripts.
   - `utils/warehouse.py` — Snowflake connection/SQL helpers, no dbt dependency; reuses the
     same `DBT_SNOWFLAKE_ACCOUNT`/`DBT_SNOWFLAKE_PAT` env vars as dbt's `profiles.yml`.
-- `docs/` — build output (dbt docs + Elementary report + landing page), published to
-  gh-pages. Generated, do not hand-edit.
+- `docs/` — the gh-pages site. `docs/dbt_docs/`, `docs/elementary_report/` and `docs/charts/`
+  are build output (gitignored, do not hand-edit); `docs/index.html` (portal) and
+  `docs/presentation/` (the slides) are hand-written and committed.
 
 ## Commands
 
@@ -58,7 +66,7 @@ mise run demo:chaos        # run all 5 chaos scenarios in the safe order, then v
 mise run demo:alert        # send pending Elementary alerts to Slack
 mise run demo:status       # orders/day + restaurant freshness snapshot
 mise run demo:reset        # drop the raw schema
-mise run webapp:build      # build dbt docs + Elementary report into docs/ (cached, incremental)
+mise run webapp:build      # build dbt docs + Elementary report + dbt Charts into docs/ (cached, incremental)
 mise run webapp:build:force  # same, bypassing the up-to-date cache
 mise run webapp:serve      # build then serve docs/ locally on :8000
 mise run charts:serve      # serve the dbt Charts dashboards (dbt/charts/) live, filters enabled
@@ -107,6 +115,12 @@ Snowflake account — Elementary models are only enabled on `prod` (see `dbt_pro
 - Daily order volume is generated with ±15% noise on purpose — a perfectly flat count gives
   `stddev = 0`, and Elementary forces `anomaly_score = 0` when stddev is 0, which would make
   `volume_anomalies` untestable even under chaos.
-- `.github/workflows/generate-daily-data.yml` runs `generator_new_day` on a daily cron — but
-  GitHub only evaluates `schedule` triggers on the repo's default branch, so until the working
-  branch is merged/made default, trigger it manually via `workflow_dispatch`.
+- `.github/workflows/generate-daily-data.yml` runs `generator_new_day` on a daily cron.
+  GitHub only evaluates `schedule` triggers on the default branch (`main`), so workflow
+  changes on another branch must be tested via `workflow_dispatch`.
+- **dbt Charts**: `source()` is resolved textually from `dbt/target/manifest.json`, hence the
+  `dbt parse` at the start of `charts:serve`/`charts:build`. `dct render` output is fully
+  static — variables (e.g. the item-category filter) are frozen at their default, only
+  `dct serve` makes them interactive. `dct render -o` resolves against `--project-dir` and
+  does not create folders. Link between boards as `<board>/` (not `<board>.yml`): static
+  renders do not rewrite `.yml` links.

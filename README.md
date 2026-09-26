@@ -2,7 +2,10 @@
 
 Démo dbt + Elementary sur un domaine fictif de marketplace de restaurants : uniquement des
 `sources:` (aucun modèle dbt), un générateur Python qui charge un historique propre puis injecte
-des défauts ciblés. Le script de présentation complet est dans [`DEMO.md`](./DEMO.md).
+des défauts ciblés. La présentation de la démo est dans
+[`docs/presentation/`](./docs/presentation/index.html), publiée avec les dbt docs, le rapport
+Elementary et les dashboards dbt Charts sur
+[jeremynadal33.github.io/dbt-data-quality](https://jeremynadal33.github.io/dbt-data-quality/).
 
 ## Setup
 
@@ -53,10 +56,9 @@ mise run demo:history  # charge 30 jours de donnees propres + rafraichit Element
 mise run demo:status   # verifie l'etat (commandes/jour, fraicheur) avant de presenter
 ```
 
-Pour dérouler la démo complète, suis [`DEMO.md`](./DEMO.md) — chaque scénario de chaos y est
-déclenché individuellement en appelant directement son script (`uv run --project data_generator
-generator_chaos_<nom>`), pas via une tâche `mise` dédiée : `mise` n'expose que `demo:chaos`, qui
-enchaîne les 5 scénarios d'un coup.
+Pour dérouler la démo complète, suis la [présentation](./docs/presentation/index.html) — chaque
+scénario de chaos y est déclenché individuellement via sa tâche `mise run demo:chaos:<nom>`
+(injection seule : enchaîner `mise run demo:verify` pour voir le test casser).
 
 ### Tâches utiles
 
@@ -67,13 +69,17 @@ enchaîne les 5 scénarios d'un coup.
 | `uv run --project data_generator generator_new_day` | ajoute une journée propre à l'historique (job quotidien, voir plus bas) |
 | `mise run demo:verify` | reconstruit les modèles Elementary et rejoue `dbt test` + `dbt source freshness` |
 | `mise run demo:chaos` | injecte les 5 scénarios de chaos dans l'ordre sûr, puis re-teste et alerte |
+| `mise run demo:chaos:<nom>` | injecte un seul scénario : `duplicate-menu-item`, `orphan-menu-item`, `new-restaurant-volume`, `late-restaurant`, `drop-column` |
+| `mise run demo:failures <test>` | affiche les lignes fautives stockées par `store_failures` pour un test |
+| `mise run dbt:compile` | compile le projet (SQL des tests dans `dbt/target/compiled`) |
 | `mise run demo:alert` | envoie les alertes Elementary en attente vers Slack |
 | `mise run demo:reset` | supprime le schéma `raw` |
-| `mise run webapp:serve` | construit et sert en local les dbt docs + le rapport Elementary |
+| `mise run webapp:serve` | construit et sert en local le site `docs/` (dbt docs, rapport Elementary, dashboards, présentation) |
+| `mise run charts:serve` | sert les dashboards dbt Charts en direct, filtres actifs |
 
-Pas de tâche `mise` pour lancer un seul scénario de chaos à la fois : ça multipliait les tâches
-pour un simple alias de `uv run --project data_generator generator_chaos_<nom>`. Utilise le
-script directement (voir `DEMO.md`), ou `mise run demo:chaos` pour les 5 d'un coup.
+`drop-column` doit passer après `duplicate-menu-item` si les deux sont joués (le second insère
+explicitement la colonne `label`, que le premier supprime). Toujours repartir d'un historique
+propre (`mise run demo:reset && mise run demo:history`) avant de rejouer un scénario isolé.
 
 ## Historique quotidien
 
@@ -90,9 +96,9 @@ Les scénarios de chaos ne sont joués que le jour de la présentation, jamais p
   données pour aujourd'hui.
 
 **Note GitHub Actions** : les déclencheurs `schedule` ne sont évalués que sur la version du
-workflow présente sur la branche par défaut du repo. Tant que `pyramide` n'est pas mergée (ou
-définie comme branche par défaut), le cron ne se déclenchera pas tout seul — utiliser
-`workflow_dispatch` (bouton "Run workflow") en attendant.
+workflow présente sur la branche par défaut du repo (`main`). Une modification du workflow
+poussée sur une autre branche n'aura donc aucun effet sur le cron avant d'être mergée —
+utiliser `workflow_dispatch` (bouton "Run workflow") pour la tester.
 
 ## Développer le générateur
 
@@ -107,7 +113,30 @@ generator_<nom>`, ou directement `generator_<nom>` une fois le venv activé).
 
 Sous `dbt/` : `dbt_project.yml`, `profiles.yml`, `packages.yml`, `src/` (uniquement des
 `sources:` avec des tests dessus — zéro modèle). Son propre `pyproject.toml`
-(`dbt-snowflake` + `elementary-data`) et son propre `.venv`. Toute commande dbt/edr passe par
+(`dbt-snowflake` + `elementary-data` + `dbt-charts`) et son propre `.venv`. Toute commande dbt/edr passe par
 `--project-dir dbt --profiles-dir dbt` (voir les tâches `dbt:*`/`demo:*` de `mise.toml`) plutôt
 que par un `cd dbt` — ça garde les chemins de sortie (`docs/dbt_docs`, `docs/elementary_report`)
 relatifs à la racine du repo, inchangés pour le déploiement gh-pages.
+
+## Les dashboards (dbt Charts)
+
+Sous `dbt/charts/`, des dashboards [dbt Charts](https://docs.dbtcharts.com/) écrits en YAML,
+qui lisent directement les sources dbt (`{{ source(...) }}`) via le profil de `dbt/profiles.yml`
+(connexion déclarée dans `dbt/dbt_charts.yml`) :
+
+- `index.yml` — page d'accueil : KPI des 7 derniers jours et liens vers les dashboards ;
+- `restaurant_insights.yml` — commandes, chiffre d'affaires et panier moyen, filtrables par
+  catégorie d'article ;
+- `meta.yml` — thème (`vivid`) appliqué à tous les boards du dossier.
+
+Deux modes :
+
+- `mise run charts:serve` — serveur local, les requêtes partent vers Snowflake à chaque
+  affichage ou changement de filtre ;
+- `mise run charts:build` (appelé par `webapp:build`) — rendu HTML statique dans
+  `docs/charts/`, publié sur gh-pages. Les filtres y sont figés sur leur valeur par défaut.
+
+Les deux lancent d'abord `dbt parse` : `source()` est résolu à partir de
+`dbt/target/manifest.json`. Les liens entre boards s'écrivent sous la forme `<board>/`
+(ex. `restaurant_insights/`), la seule qui marche à la fois dans `dct serve` et dans le rendu
+statique.
