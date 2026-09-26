@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>La data quality ? En veux tu en voilà !</title>
+    <style>
+        :root {
+            /* Snowflake brand palette */
+            --snowflake-blue: #29b5e8;
+            --mid-blue: #11567f;
+            --midnight: #0b2a3f;
+            --star-blue: #75cdd7;
+            --navy: var(--midnight);
+            --blue: var(--mid-blue);
+            --light: #f4fafd;
+            --muted: #5b6b7c;
+            --border: #d3e9f3;
+            --memo: #fff4e6;
+            --memo-accent: #ff9f36;
+            --ok: #1f9d55;
+            --ko: #d64545;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            height: 100%;
+            overflow: hidden;
+            font-family: sans-serif;
+            background: var(--navy);
+            color: var(--navy);
+        }
+
+        .deck {
+            position: relative;
+            height: 100%;
+        }
+
+        .slide {
+            position: absolute;
+            inset: 0;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            padding: 8vh 7vw 8vh;
+            background: var(--light);
+            font-size: clamp(14px, 2.1vw, 26px);
+            line-height: 1.45;
+            overflow-y: auto;
+        }
+
+        .slide.is-active {
+            display: flex;
+        }
+
+        .slide h1 {
+            font-size: 2.4em;
+            margin: 0 0 .3em;
+        }
+
+        .slide h2 {
+            font-size: 1.6em;
+            margin: 0 0 .6em;
+            border-bottom: 4px solid var(--snowflake-blue);
+            padding-bottom: .2em;
+            align-self: flex-start;
+        }
+
+        .slide h3 {
+            margin: 0 0 .3em;
+            font-size: 1.05em;
+        }
+
+        .slide ul {
+            margin: .2em 0;
+            padding-left: 1.2em;
+        }
+
+        .slide li {
+            margin: .25em 0;
+        }
+
+        .slide a {
+            color: var(--blue);
+        }
+
+        .subtitle {
+            color: var(--muted);
+            font-size: 1.1em;
+        }
+
+        .slide--title,
+        .slide--end {
+            background: linear-gradient(135deg, var(--midnight) 0%, var(--mid-blue) 55%, var(--snowflake-blue) 100%);
+            color: #fff;
+            text-align: center;
+            align-items: center;
+        }
+
+        .slide--title .subtitle,
+        .slide--end .subtitle {
+            color: #cdeaf7;
+        }
+
+        .slide--title a,
+        .slide--end a {
+            color: #fff;
+        }
+
+        .slide--memo {
+            background: var(--memo);
+            justify-content: flex-start;
+            font-size: clamp(12px, 1.6vw, 20px);
+        }
+
+        .slide--memo h2 {
+            border-color: var(--memo-accent);
+        }
+
+        .slide--memo h2::before {
+            content: "🧭 ";
+        }
+
+        .memo-tag {
+            position: absolute;
+            top: 2vh;
+            right: 2vw;
+            font-size: .7em;
+            text-transform: uppercase;
+            letter-spacing: .1em;
+            color: var(--memo-accent);
+            font-weight: bold;
+        }
+
+        .columns {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.2em;
+        }
+
+        .card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: .8em 1em;
+        }
+
+        .card--accent {
+            border-top: 5px solid var(--snowflake-blue);
+        }
+
+        .card--dim {
+            opacity: .75;
+        }
+
+        code {
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: .88em;
+            background: #e1f3fa;
+            padding: .05em .3em;
+            border-radius: 4px;
+        }
+
+        .cmd {
+            position: relative;
+            margin: .35em 0;
+        }
+
+        .cmd pre {
+            margin: 0;
+            padding: .6em 4.5em .6em .8em;
+            background: var(--navy);
+            color: #e6edf3;
+            border-radius: 6px;
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: .85em;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .copy-button {
+            position: absolute;
+            top: .35em;
+            right: .35em;
+            border: 0;
+            border-radius: 4px;
+            padding: .25em .6em;
+            background: var(--blue);
+            color: #fff;
+            cursor: pointer;
+            font-size: .75em;
+        }
+
+        .copy-button.is-copied {
+            background: var(--ok);
+        }
+
+        .expected {
+            color: var(--muted);
+            font-size: .9em;
+        }
+
+        .expected strong {
+            color: var(--ko);
+        }
+
+        .checklist {
+            list-style: none;
+            padding-left: 0 !important;
+        }
+
+        .checklist li::before {
+            content: "☐ ";
+            color: var(--memo-accent);
+        }
+
+        .warning {
+            border-left: 5px solid var(--ko);
+            background: #fff;
+            padding: .4em .8em;
+            margin: .5em 0;
+        }
+
+        .pyramid {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: .25em;
+        }
+
+        .pyramid-level {
+            display: grid;
+            grid-template-columns: 11em 1fr;
+            gap: 1em;
+            align-items: center;
+            color: #fff;
+            border-radius: 6px;
+            padding: .45em 1em;
+            font-size: .82em;
+        }
+
+        .pyramid-level:nth-child(1) {
+            width: 64%;
+            background: var(--midnight);
+        }
+
+        .pyramid-level:nth-child(2) {
+            width: 76%;
+            background: var(--mid-blue);
+        }
+
+        .pyramid-level:nth-child(3) {
+            width: 88%;
+            background: #1d86b8;
+        }
+
+        .pyramid-level:nth-child(4) {
+            width: 100%;
+            background: var(--snowflake-blue);
+            color: var(--midnight);
+        }
+
+        .pyramid-level code {
+            color: inherit;
+            background: rgba(255, 255, 255, .18);
+        }
+
+        .pyramid-level .blind-spot {
+            display: block;
+            font-size: .85em;
+            opacity: .8;
+            font-style: italic;
+        }
+
+        .pyramid-name {
+            font-weight: bold;
+        }
+
+        .pyramid-name small {
+            display: block;
+            font-weight: normal;
+            opacity: .85;
+        }
+
+        .punchline {
+            margin-top: 1em;
+            font-size: 1.1em;
+            font-weight: bold;
+            color: var(--blue);
+        }
+
+        .logos {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 3em;
+            margin: 1.2em 0;
+        }
+
+        .logos a {
+            display: block;
+            transition: transform .15s;
+        }
+
+        .logos a:hover {
+            transform: scale(1.06);
+        }
+
+        .logos img {
+            display: block;
+            height: 2.4em;
+        }
+
+        .logos--small img {
+            height: 1.6em;
+        }
+
+        .snowflake-title-logo img {
+            display: block;
+            height: 2.2em;
+            margin-top: .6em;
+        }
+
+        .corner-logo {
+            position: absolute;
+            top: 2vh;
+            left: 2vw;
+        }
+
+        .corner-logo img {
+            display: block;
+            height: clamp(18px, 3.2vh, 32px);
+        }
+
+        .progress {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            height: 5px;
+            background: var(--snowflake-blue);
+            transition: width .2s;
+            z-index: 2;
+        }
+
+        .counter {
+            position: fixed;
+            right: 1.2vw;
+            bottom: 1.2vh;
+            font-size: 13px;
+            color: var(--muted);
+            z-index: 2;
+        }
+
+        .home-link {
+            position: fixed;
+            left: 1.2vw;
+            bottom: 1.2vh;
+            font-size: 13px;
+            color: var(--muted);
+            text-decoration: none;
+            z-index: 2;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="deck">
+
+        <section class="slide slide--title">
+            <div class="logos">
+                <a href="https://docs.getdbt.com/" target="_blank" title="Documentation dbt"><img src="assets/dbt-logo-light.svg" alt="dbt"></a>
+                <a href="https://docs.elementary-data.com/" target="_blank" title="Documentation Elementary"><img src="assets/elementary-logo-white.png" alt="Elementary"></a>
+            </div>
+            <h1>La data quality ? En veux tu en voilà !</h1>
+            <p class="subtitle">dbt × Elementary</p>
+            <p>SUGA — Snowflake User Group Aquitaine</p>
+            <a class="snowflake-title-logo" href="https://docs.snowflake.com/" target="_blank" title="Documentation Snowflake"><img src="assets/snowflake-logo-white.svg" alt="Snowflake"></a>
+        </section>
+
+        <section class="slide">
+            <h2>Pourquoi ce talk ?</h2>
+            <div class="columns">
+                <div class="card">
+                    <h3>SUGA #1 — novembre 2025</h3>
+                    <p>Floa, Technique Solaire, DomoFrance ont présenté leurs outils de data quality :</p>
+                    <ul>
+                        <li>Soda</li>
+                        <li>Snowflake Data Metric Functions</li>
+                        <li>Great Expectations</li>
+                    </ul>
+                </div>
+                <div class="card card--accent">
+                    <h3>Mon constat</h3>
+                    <ul>
+                        <li>Des frameworks puissants… mais un outil, une syntaxe et une infra en plus</li>
+                        <li>Chez nos clients, dbt est souvent <strong>déjà là</strong></li>
+                        <li>dbt + Elementary couvre l'essentiel : tests, anomalies, rapport, alertes</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section class="slide">
+            <h2>Tester le code ≠ tester la donnée</h2>
+            <div class="columns">
+                <div class="card card--dim">
+                    <h3>🧩 Tests unitaires</h3>
+                    <p>Une fonction, une transformation isolée, sur des entrées maîtrisées.</p>
+                </div>
+                <div class="card card--dim">
+                    <h3>🔗 Tests d'intégration</h3>
+                    <p>Plusieurs briques ensemble : connexion, chargement, contrats d'API.</p>
+                </div>
+                <div class="card card--dim">
+                    <h3>🚀 Tests end-to-end</h3>
+                    <p>Le pipeline complet, de la source au dashboard.</p>
+                </div>
+                <div class="card card--accent">
+                    <h3>🧪 Tests de qualité de données</h3>
+                    <p>La <strong>donnée réelle</strong>, en production, à chaque run. Le code peut être parfait et la donnée fausse.</p>
+                </div>
+            </div>
+            <p class="punchline">Aujourd'hui : on creuse la dernière colonne.</p>
+        </section>
+
+        <section class="slide">
+            <h2>La pyramide de confiance</h2>
+            <div class="pyramid">
+                <div class="pyramid-level">
+                    <span class="pyramid-name">N4 — Actionnable<small>qui le sait ?</small></span>
+                    <span><code>store_failures</code> · <code>edr monitor</code> → Slack · rapport Elementary</span>
+                </div>
+                <div class="pyramid-level">
+                    <span class="pyramid-name">N3 — Plausible<small>est-ce normal ?</small></span>
+                    <span><code>elementary.volume_anomalies</code> · <code>elementary.column_anomalies</code> · <code>elementary.schema_changes_from_baseline</code>
+                        <span class="blind-spot">angle mort : a besoin d'historique</span></span>
+                </div>
+                <div class="pyramid-level">
+                    <span class="pyramid-name">N2 — Présente<small>est-elle arrivée ?</small></span>
+                    <span><code>dbt source freshness</code>
+                        <span class="blind-spot">angle mort : ne dit rien sur le contenu</span></span>
+                </div>
+                <div class="pyramid-level">
+                    <span class="pyramid-name">N1 — Valide<small>la forme est-elle correcte ?</small></span>
+                    <span><code>unique</code> · <code>not_null</code> · <code>accepted_values</code> · <code>relationships</code> · <code>is_positive</code> · <code>dbt_utils.unique_combination_of_columns</code> · <code>dbt_expectations.expect_column_values_to_match_regex</code>
+                        <span class="blind-spot">angle mort : ne voit que ce qu'on a anticipé</span></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="slide">
+            <h2>Les data tests dbt</h2>
+            <p>Un test = une requête SQL qui renvoie <strong>les lignes fautives</strong>. 0 ligne → PASS.</p>
+            <div class="columns">
+                <div class="card">
+                    <h3>Generic built-in</h3>
+                    <p><code>unique</code>, <code>not_null</code>, <code>accepted_values</code>, <code>relationships</code></p>
+                </div>
+                <div class="card">
+                    <h3>Packages</h3>
+                    <p><code>dbt_utils</code>, <code>dbt_expectations</code>, <code>elementary</code> — installés via <code>dbt deps</code></p>
+                </div>
+                <div class="card">
+                    <h3>Custom generic</h3>
+                    <p><code>is_positive</code> : une macro <code>{% test %}</code>, réutilisable sur n'importe quelle colonne</p>
+                </div>
+                <div class="card">
+                    <h3>Singular</h3>
+                    <p>Un fichier <code>.sql</code> dans <code>tests/</code>, pour une règle métier ponctuelle</p>
+                </div>
+            </div>
+            <div class="card card--dim" style="margin-top:1em">
+                <h3>En contrepoint : <code>unit_tests</code></h3>
+                <p>Testent la <em>logique</em> d'un modèle dbt sur des données mockées — c'est du test de code, pas de donnée.</p>
+            </div>
+        </section>
+
+        <section class="slide slide--memo">
+            <span class="memo-tag">Aide-mémoire</span>
+            <h2>Tour du projet</h2>
+            <div class="columns">
+                <div>
+                    <h3>Liens</h3>
+                    <ul>
+                        <li><a href="https://github.com/Jeremynadal33/dbt-data-quality" target="_blank">Repo GitHub</a></li>
+                        <li><a href="https://jeremynadal33.github.io/dbt-data-quality/" target="_blank">Webapp (générée la veille)</a></li>
+                        <li><a href="https://app.snowflake.com/" target="_blank">Snowflake</a> — <code>jnadal_db.raw</code></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3>À montrer</h3>
+                    <ul class="checklist">
+                        <li>Le repo : <code>dbt/</code> (sources + tests, zéro modèle) et <code>data_generator/</code></li>
+                        <li>La webapp : dbt docs + rapport Elementary, tout au vert</li>
+                        <li>Les tables dans Snowflake : restaurants, menu_items, orders, order_lines</li>
+                        <li>Le domaine : marketplace, équipes Catalog et Orders</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="cmd"><pre>mise run demo:status</pre></div>
+        </section>
+
+        <section class="slide slide--memo">
+            <span class="memo-tag">Aide-mémoire</span>
+            <h2>Dans l'IDE</h2>
+            <ul class="checklist">
+                <li>dbt en 2 minutes : <code>dbt_project.yml</code>, <code>profiles.yml</code>, sources dans <code>dbt/src/models/sources/</code></li>
+                <li>Compilation : Jinja → SQL, montrer le SQL compilé d'un test dans <code>target/compiled</code></li>
+                <li>Types de tests dans les YAML + <code>dbt/src/tests/generic/is_positive.sql</code></li>
+                <li><code>store_failures</code> (dans <code>dbt_project.yml</code>) → lignes fautives dans le schéma <code>dq_failures</code></li>
+                <li>Package dbt <code>elementary</code> (modèles + tests dans le warehouse) ≠ CLI <code>edr</code> (rapport + alertes)</li>
+                <li>Optionnel : <code>edr</code> = package Python qui orchestre des macros dbt, requête les tables Elementary, construit un site statique ou envoie des alertes</li>
+            </ul>
+            <div class="cmd"><pre>mise run dbt:compile</pre></div>
+            <div class="cmd"><pre>mise run demo:verify</pre></div>
+        </section>
+
+        <section class="slide slide--memo">
+            <span class="memo-tag">Aide-mémoire · N1 Valide</span>
+            <h2>N1 — le contrat</h2>
+            <h3><code>unique</code> sur <code>menu_items.item_id</code></h3>
+            <div class="cmd"><pre>mise run demo:chaos:duplicate-menu-item &amp;&amp; mise run demo:verify</pre></div>
+            <p class="expected">Attendu : <strong>FAIL 1</strong> source_unique_raw_catalog_menu_items_item_id</p>
+            <div class="cmd"><pre>mise run demo:failures source_unique_raw_catalog_menu_items_item_id</pre></div>
+            <h3><code>relationships</code> sur <code>order_lines.item_id → menu_items.item_id</code></h3>
+            <div class="cmd"><pre>mise run demo:chaos:orphan-menu-item &amp;&amp; mise run demo:verify</pre></div>
+            <p class="expected">Attendu : <strong>FAIL 1</strong> source_relationships_raw_orders_order_lines_item_id__…</p>
+            <h3>Repartir propre</h3>
+            <div class="cmd"><pre>mise run demo:reset &amp;&amp; mise run demo:history</pre></div>
+        </section>
+
+        <section class="slide slide--memo">
+            <span class="memo-tag">Aide-mémoire · N2 Présente</span>
+            <h2>N2 — la présence</h2>
+            <div class="cmd"><pre>mise run demo:chaos:late-restaurant &amp;&amp; mise run demo:verify</pre></div>
+            <p class="expected">Attendu : <code>dbt test</code> tout vert, mais <strong>ERROR STALE</strong> freshness of raw_catalog.restaurants</p>
+            <ul class="checklist">
+                <li>Dire : <code>unique</code>, <code>not_null</code>, <code>accepted_values</code> ne regardent jamais l'horloge</li>
+                <li>Montrer <code>loaded_at_field: synced_at</code> + <code>warn_after</code>/<code>error_after</code> dans le YAML</li>
+            </ul>
+            <h3>Repartir propre</h3>
+            <div class="cmd"><pre>mise run demo:reset &amp;&amp; mise run demo:history</pre></div>
+        </section>
+
+        <section class="slide slide--memo">
+            <span class="memo-tag">Aide-mémoire · N3 Plausible</span>
+            <h2>N3 — le twist</h2>
+            <div class="cmd"><pre>mise run demo:verify</pre></div>
+            <p class="expected">Point de départ : tout vert, freshness PASS</p>
+            <div class="warning"><code>demo:chaos:drop-column</code> doit passer <strong>après</strong> <code>demo:chaos:duplicate-menu-item</code> si les deux sont joués.</div>
+            <div class="cmd"><pre>mise run demo:chaos:new-restaurant-volume &amp;&amp; mise run demo:chaos:drop-column &amp;&amp; mise run demo:verify</pre></div>
+            <p class="expected">Attendu : <strong>FAIL</strong> volume_anomalies_raw_orders_orders · <strong>FAIL</strong> schema_changes_from_baseline_raw_catalog_menu_items</p>
+            <ul class="checklist">
+                <li>Chaque commande est valide individuellement : seul le test sur la série temporelle réagit</li>
+                <li><code>schema_changes_from_baseline</code> détecte dès le 1er run (≠ <code>schema_changes</code>)</li>
+                <li><strong>Ne pas resetter</strong> : les anomalies doivent rester « pending » pour N4</li>
+            </ul>
+        </section>
+
+        <section class="slide slide--memo">
+            <span class="memo-tag">Aide-mémoire · N4 Actionnable</span>
+            <h2>N4 — l'action</h2>
+            <div class="cmd"><pre>mise run demo:alert</pre></div>
+            <p class="expected">Attendu : 2 messages dans le channel Slack <code>demo-data-quality</code>, un par test, avec l'owner mentionné</p>
+            <ul class="checklist">
+                <li>Montrer <code>meta.owner</code> / <code>alerts_config.subscribers</code> dans les sources</li>
+                <li>Ouvrir Slack</li>
+                <li>Ouvrir le rapport Elementary : historique, graphe du volume avec le pic</li>
+            </ul>
+            <div class="cmd"><pre>mise run webapp:build:force &amp;&amp; mise run webapp:serve</pre></div>
+            <p><a href="http://localhost:8000/elementary_report/" target="_blank">localhost:8000/elementary_report</a></p>
+        </section>
+
+        <section class="slide">
+            <h2>Et après ?</h2>
+            <div class="columns">
+                <div class="card">
+                    <h3>📊 dbt charts</h3>
+                    <p><a href="https://dbtcharts.com/" target="_blank">dbtcharts.com</a></p>
+                </div>
+                <div class="card">
+                    <h3>🧩 dbt unit tests</h3>
+                    <p><a href="https://docs.getdbt.com/docs/build/unit-tests?version=2" target="_blank">docs.getdbt.com — unit tests</a></p>
+                </div>
+                <div class="card">
+                    <h3>📐 MetricFlow &amp; semantic layer</h3>
+                    <p><a href="https://docs.getdbt.com/docs/build/build-metrics-intro?version=2" target="_blank">docs.getdbt.com — metrics</a></p>
+                </div>
+                <div class="card card--accent">
+                    <h3>🌍 Communauté</h3>
+                    <p>Très répandu : facile à recruter, des packages prêts à l'emploi pour presque tout.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="slide slide--end">
+            <h1>Merci !</h1>
+            <p class="subtitle">Questions ?</p>
+            <div class="logos logos--small">
+                <a href="https://docs.getdbt.com/" target="_blank" title="Documentation dbt"><img src="assets/dbt-logo-light.svg" alt="dbt"></a>
+                <a href="https://docs.elementary-data.com/" target="_blank" title="Documentation Elementary"><img src="assets/elementary-logo-white.png" alt="Elementary"></a>
+            </div>
+            <p><a href="https://github.com/Jeremynadal33/dbt-data-quality" target="_blank">github.com/Jeremynadal33/dbt-data-quality</a></p>
+            <p><a href="https://jeremynadal33.github.io/dbt-data-quality/" target="_blank">jeremynadal33.github.io/dbt-data-quality</a></p>
+        </section>
+
+    </main>
+
+    <div class="progress"></div>
+    <a class="home-link" href="../">← Portail</a>
+    <div class="counter"></div>
+
+    <script>
+        const slides = Array.from(document.querySelectorAll(".slide"));
+        const progress = document.querySelector(".progress");
+        const counter = document.querySelector(".counter");
+        let current = 0;
+
+        slides.filter((slide) => !slide.classList.contains("slide--title")).forEach((slide) => {
+            const logo = slide.classList.contains("slide--end") ? "snowflake-logo-white.svg" : "snowflake-logo.svg";
+            slide.insertAdjacentHTML("afterbegin",
+                `<a class="corner-logo" href="https://docs.snowflake.com/" target="_blank" title="Documentation Snowflake"><img src="assets/${logo}" alt="Snowflake"></a>`);
+        });
+
+        function slideIndexFromHash() {
+            const index = parseInt(location.hash.slice(1), 10) - 1;
+            return Number.isInteger(index) ? Math.min(Math.max(index, 0), slides.length - 1) : 0;
+        }
+
+        function show(index) {
+            current = Math.min(Math.max(index, 0), slides.length - 1);
+            slides.forEach((slide, i) => slide.classList.toggle("is-active", i === current));
+            progress.style.width = `${((current + 1) / slides.length) * 100}%`;
+            counter.textContent = `${current + 1} / ${slides.length}`;
+            history.replaceState(null, "", `#${current + 1}`);
+        }
+
+        const keyActions = {
+            ArrowRight: () => show(current + 1),
+            ArrowDown: () => show(current + 1),
+            PageDown: () => show(current + 1),
+            " ": () => show(current + 1),
+            ArrowLeft: () => show(current - 1),
+            ArrowUp: () => show(current - 1),
+            PageUp: () => show(current - 1),
+            Home: () => show(0),
+            End: () => show(slides.length - 1),
+            f: () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(),
+        };
+
+        document.addEventListener("keydown", (event) => {
+            const action = keyActions[event.key];
+            if (action && !event.metaKey && !event.ctrlKey && !event.altKey) {
+                event.preventDefault();
+                action();
+            }
+        });
+
+        window.addEventListener("hashchange", () => show(slideIndexFromHash()));
+
+        document.querySelectorAll(".cmd").forEach((block) => {
+            const button = document.createElement("button");
+            button.className = "copy-button";
+            button.textContent = "Copier";
+            button.addEventListener("click", async () => {
+                await navigator.clipboard.writeText(block.querySelector("pre").textContent);
+                button.textContent = "Copié ✓";
+                button.classList.add("is-copied");
+                setTimeout(() => {
+                    button.textContent = "Copier";
+                    button.classList.remove("is-copied");
+                }, 1500);
+            });
+            block.appendChild(button);
+        });
+
+        show(slideIndexFromHash());
+    </script>
+</body>
+
+</html>
