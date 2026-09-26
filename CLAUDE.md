@@ -61,6 +61,8 @@ mise run demo:reset        # drop the raw schema
 mise run webapp:build      # build dbt docs + Elementary report into docs/ (cached, incremental)
 mise run webapp:build:force  # same, bypassing the up-to-date cache
 mise run webapp:serve      # build then serve docs/ locally on :8000
+mise run charts:serve      # serve the dbt Charts dashboards (dbt/charts/) live, filters enabled
+mise run charts:build      # render them to static HTML into docs/charts/ (filters frozen at default)
 mise run ci:run            # reproduce CI's "Run dbt project" step (debug, deps, run, test)
 mise run ci:docs           # reproduce CI's "Generate docs" step (debug, deps, docs+report)
 ```

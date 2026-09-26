@@ -53,14 +53,15 @@ description = "Generate the Elementary report"
 run = "uv run --project dbt edr report --project-dir dbt --profiles-dir dbt --profile-target $DBT_TARGET --env prod --target-path docs/elementary_report"
 
 [tasks."webapp:build"]
-description = "Build the dbt docs and Elementary report into docs/, alongside the static index.html landing page; skipped if nothing changed since the last build"
-sources = ["dbt/src/**/*", "dbt/dbt_project.yml", "dbt/packages.yml", "dbt/package-lock.yml"]
-outputs = ["docs/dbt_docs/index.html", "docs/elementary_report/index.html"]
+description = "Build the dbt docs, Elementary report and dbt Charts dashboards into docs/, alongside the static index.html landing page; skipped if nothing changed since the last build"
+sources = ["dbt/src/**/*", "dbt/dbt_project.yml", "dbt/packages.yml", "dbt/package-lock.yml", "dbt/charts/**/*", "dbt/dbt_charts.yml"]
+outputs = ["docs/dbt_docs/index.html", "docs/elementary_report/index.html", "docs/charts/index.html"]
 run = """
 mise run dbt:deps
 mise run dbt:docs
 mise run elementary:report
 mv -f docs/elementary_report/elementary_report.html docs/elementary_report/index.html
+mise run charts:build
 """
 
 [tasks."webapp:build:force"]
@@ -72,6 +73,23 @@ run = "mise run --force webapp:build"
 description = "Serve the built docs webapp locally"
 depends = ["webapp:build"]
 run = "python3 -m http.server 8000 --directory docs"
+
+[tasks."charts:build"]
+description = "Render the dbt Charts dashboards to static HTML into docs/charts/ (variables frozen at their default)"
+run = """
+uv run --project dbt dbt parse --project-dir dbt --profiles-dir dbt --target $DBT_TARGET
+# -o is resolved against --project-dir, and dct render does not create missing folders
+mkdir -p docs/charts/restaurant_insights
+uv run --project dbt dct render charts/index.yml --project-dir dbt --format html -o ../docs/charts/index.html
+uv run --project dbt dct render charts/restaurant_insights.yml --project-dir dbt --format html -o ../docs/charts/restaurant_insights/index.html
+"""
+
+[tasks."charts:serve"]
+description = "Serve the dbt Charts dashboards (dbt/charts/) locally; dbt parse first so source() resolves"
+run = """
+uv run --project dbt dbt parse --project-dir dbt --profiles-dir dbt --target $DBT_TARGET
+uv run --project dbt dct serve --project-dir dbt --target $DBT_TARGET
+"""
 
 ### Tasks for demo scenarios
 [tasks."demo:verify"]
@@ -164,13 +182,14 @@ run = "mise run dbt:debug && mise run webapp:build"
 [tasks."docs:publish"]
 description = "Sync docs/ into a gh-pages checkout at ./gh-pages and push (git identity left to the caller)"
 run = """
-rm -rf gh-pages/docs/dbt_docs gh-pages/docs/elementary_report gh-pages/docs/presentation
+rm -rf gh-pages/docs/dbt_docs gh-pages/docs/elementary_report gh-pages/docs/presentation gh-pages/docs/charts
 cp -r docs/dbt_docs gh-pages/docs/
 cp -r docs/elementary_report gh-pages/docs/
 cp -r docs/presentation gh-pages/docs/
+cp -r docs/charts gh-pages/docs/
 cp docs/index.html gh-pages/docs/
 cd gh-pages
-git add docs/dbt_docs docs/elementary_report docs/presentation docs/index.html
+git add docs/dbt_docs docs/elementary_report docs/presentation docs/charts docs/index.html
 git commit -m "Update dbt & Elementary docs" || echo "No changes to commit"
 git push origin gh-pages
 """

@@ -1,0 +1,103 @@
+title: Restaurant Insights
+notes: |
+  Business view of the restaurant marketplace, read straight from the raw dbt sources
+  (no dbt models). Cancelled orders are excluded from revenue figures.
+
+source: snowflake
+cache: 1h
+
+variables:
+  categories:
+    input: multiselect
+    label: Item category
+    notes: Leave empty to include every category.
+    options:
+      query: item_categories
+      column: category
+
+queries:
+  item_categories: |
+    select distinct category
+    from {{ source('raw_catalog', 'menu_items') }}
+    order by 1
+
+  # Filtering happens at the order-line grain: an order's total is the sum of its lines,
+  # so line amounts restricted to the selected categories stay consistent with totals.
+  filtered_lines: |
+    select
+      o.order_id,
+      o.ordered_at,
+      o.status,
+      r.name as restaurant_name,
+      r.cuisine_type,
+      ol.quantity * ol.unit_price_eur as line_amount_eur
+    from {{ source('raw_orders', 'order_lines') }} as ol
+    join {{ source('raw_catalog', 'menu_items') }} as m on m.item_id = ol.item_id
+    join {{ source('raw_orders', 'orders') }} as o on o.order_id = ol.order_id
+    join {{ source('raw_catalog', 'restaurants') }} as r on r.restaurant_id = o.restaurant_id
+    where {{ filter('m.category', categories) }}
+
+  daily_orders: |
+    select date_trunc('day', ordered_at)::date as order_date, count(distinct order_id) as orders
+    from {{ queries.filtered_lines }}
+    group by 1
+    order by 1
+
+  revenue_by_cuisine: |
+    select cuisine_type, sum(line_amount_eur) as revenue_eur
+    from {{ queries.filtered_lines }}
+    where status != 'cancelled'
+    group by 1
+    order by 2 desc
+
+  top_restaurants: |
+    select restaurant_name as restaurant, sum(line_amount_eur) as revenue_eur
+    from {{ queries.filtered_lines }}
+    where status != 'cancelled'
+    group by 1
+    order by 2 desc
+    limit 10
+
+  avg_basket_by_cuisine: |
+    select cuisine_type, sum(line_amount_eur) / count(distinct order_id) as avg_basket_eur
+    from {{ queries.filtered_lines }}
+    where status != 'cancelled'
+    group by 1
+    order by 2 desc
+
+charts:
+  orders_trend:
+    type: line
+    query: daily_orders
+    title: Orders per day
+    x: order_date
+    y: orders
+
+  cuisine_revenue:
+    type: bar
+    query: revenue_by_cuisine
+    title: Revenue by cuisine (EUR)
+    x: cuisine_type
+    y: revenue_eur
+
+  top_10_restaurants:
+    type: bar
+    query: top_restaurants
+    title: Top 10 restaurants by revenue (EUR)
+    x: restaurant
+    y: revenue_eur
+
+  cuisine_basket:
+    type: bar
+    query: avg_basket_by_cuisine
+    title: Average basket by cuisine (EUR)
+    x: cuisine_type
+    y: avg_basket_eur
+
+rows:
+  - cols:
+      - orders_trend
+      - cuisine_revenue
+  - cols:
+      - top_10_restaurants
+      - cuisine_basket

@@ -1,0 +1,113 @@
+title: Restaurant Marketplace
+notes: Landing page — last-7-days headline KPIs and links to the dashboards built on the raw dbt sources.
+
+text: |
+  Business view read straight from the `raw_catalog` and `raw_orders` dbt sources —
+  the same tables the data-quality tests watch. Figures cover the **last 7 days** of
+  data, compared with the 7 days before.
+
+source: snowflake
+cache: 1h
+
+queries:
+  # Windows are anchored on the latest order rather than current_date, so the page stays
+  # meaningful whether or not today's data has landed yet.
+  headline: |
+    with bounds as (
+      select max(ordered_at)::date as last_day
+      from {{ source('raw_orders', 'orders') }}
+    ),
+    windowed as (
+      select
+        o.total_amount_eur,
+        o.ordered_at::date > b.last_day - 7 as is_current,
+        o.ordered_at::date > b.last_day - 14 and o.ordered_at::date <= b.last_day - 7 as is_previous
+      from {{ source('raw_orders', 'orders') }} as o
+      cross join bounds as b
+      where o.status != 'cancelled'
+    ),
+    periods as (
+      select
+        count_if(is_current) as orders,
+        count_if(is_previous) as orders_prev,
+        sum(iff(is_current, total_amount_eur, 0)) as revenue_eur,
+        sum(iff(is_previous, total_amount_eur, 0)) as revenue_prev_eur
+      from windowed
+    )
+    select
+      (select count(*) from {{ source('raw_catalog', 'restaurants') }}) as restaurants,
+      orders,
+      orders / nullif(orders_prev, 0) - 1 as orders_delta,
+      revenue_eur,
+      revenue_eur / nullif(revenue_prev_eur, 0) - 1 as revenue_delta,
+      revenue_eur / nullif(orders, 0) as avg_basket_eur,
+      (revenue_eur / nullif(orders, 0)) / nullif(revenue_prev_eur / nullif(orders_prev, 0), 0) - 1 as avg_basket_delta
+    from periods
+
+  daily_revenue: |
+    select ordered_at::date as order_date, sum(total_amount_eur) as revenue_eur
+    from {{ source('raw_orders', 'orders') }}
+    where status != 'cancelled'
+    group by 1
+    order by 1
+
+charts:
+  restaurants_kpi:
+    type: kpi
+    query: headline
+    label: Restaurants
+    value: restaurants
+
+  orders_kpi:
+    type: kpi
+    query: headline
+    label: Orders
+    value: orders
+    support:
+      value: orders_delta
+      label: vs previous 7 days
+      format: percent_delta
+
+  revenue_kpi:
+    type: kpi
+    query: headline
+    label: Revenue (EUR)
+    value: revenue_eur
+    support:
+      value: revenue_delta
+      label: vs previous 7 days
+      format: percent_delta
+
+  basket_kpi:
+    type: kpi
+    query: headline
+    label: Average basket (EUR)
+    value: avg_basket_eur
+    style:
+      value:
+        format: ",.2f"
+    support:
+      value: avg_basket_delta
+      label: vs previous 7 days
+      format: percent_delta
+
+  revenue_trend:
+    type: area
+    query: daily_revenue
+    title: Daily revenue (EUR)
+    x: order_date
+    y: revenue_eur
+    style:
+      aspect_ratio: 4
+
+rows:
+  - cols:
+      - restaurants_kpi
+      - orders_kpi
+      - revenue_kpi
+      - basket_kpi
+  - revenue_trend
+  - title: Dashboards
+    text: |
+      - [Restaurant Insights](restaurant_insights/) — orders trend, revenue and
+        average basket by cuisine, top 10 restaurants. Filterable by item category.

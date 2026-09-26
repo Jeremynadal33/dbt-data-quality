@@ -1,0 +1,4 @@
+sources:
+  snowflake:
+    type: dbt_profile
+    profile: dbt_data_quality
