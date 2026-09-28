@@ -348,13 +348,39 @@
             z-index: 2;
         }
 
-        .counter {
+        .nav {
             position: fixed;
             right: 1.2vw;
             bottom: 1.2vh;
+            display: flex;
+            align-items: center;
+            gap: .4em;
+            z-index: 2;
+        }
+
+        .counter {
             font-size: 13px;
             color: var(--muted);
-            z-index: 2;
+            min-width: 3.5em;
+            text-align: center;
+        }
+
+        .nav-button {
+            width: 2.2em;
+            height: 2.2em;
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            background: #fff;
+            color: var(--blue);
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        .nav-button:disabled {
+            opacity: .35;
+            cursor: default;
         }
 
         .home-link {
@@ -614,12 +640,17 @@
 
     <div class="progress"></div>
     <a class="home-link" href="../">← Portail</a>
-    <div class="counter"></div>
+    <nav class="nav" aria-label="Navigation des slides">
+        <button class="nav-button" data-step="-1" aria-label="Slide précédente">‹</button>
+        <span class="counter"></span>
+        <button class="nav-button" data-step="1" aria-label="Slide suivante">›</button>
+    </nav>
 
     <script>
         const slides = Array.from(document.querySelectorAll(".slide"));
         const progress = document.querySelector(".progress");
         const counter = document.querySelector(".counter");
+        const [previousButton, nextButton] = document.querySelectorAll(".nav-button");
         let current = 0;
 
         slides.filter((slide) => !slide.classList.contains("slide--title")).forEach((slide) => {
@@ -638,6 +669,8 @@
             slides.forEach((slide, i) => slide.classList.toggle("is-active", i === current));
             progress.style.width = `${((current + 1) / slides.length) * 100}%`;
             counter.textContent = `${current + 1} / ${slides.length}`;
+            previousButton.disabled = current === 0;
+            nextButton.disabled = current === slides.length - 1;
             history.replaceState(null, "", `#${current + 1}`);
         }
 
@@ -663,6 +696,35 @@
         });
 
         window.addEventListener("hashchange", () => show(slideIndexFromHash()));
+
+        document.querySelectorAll(".nav-button").forEach((button) => {
+            button.addEventListener("click", () => show(current + Number(button.dataset.step)));
+        });
+
+        // Click/tap on the left or right half of the screen, except on interactive elements
+        // and when the click just ended a text selection.
+        document.querySelector(".deck").addEventListener("click", (event) => {
+            if (event.target.closest("a, button, .cmd") || !document.getSelection().isCollapsed) return;
+            show(current + (event.clientX < window.innerWidth / 2 ? -1 : 1));
+        });
+
+        // Horizontal swipe only: vertical gestures must keep scrolling long slides.
+        const SWIPE_MIN_DISTANCE = 50;
+        let touchStart = null;
+        document.addEventListener("touchstart", (event) => {
+            const touch = event.changedTouches[0];
+            touchStart = { x: touch.clientX, y: touch.clientY };
+        }, { passive: true });
+        document.addEventListener("touchend", (event) => {
+            if (!touchStart) return;
+            const touch = event.changedTouches[0];
+            const dx = touch.clientX - touchStart.x;
+            const dy = touch.clientY - touchStart.y;
+            touchStart = null;
+            if (Math.abs(dx) >= SWIPE_MIN_DISTANCE && Math.abs(dx) > 1.5 * Math.abs(dy)) {
+                show(current + (dx < 0 ? 1 : -1));
+            }
+        }, { passive: true });
 
         document.querySelectorAll(".cmd").forEach((block) => {
             const button = document.createElement("button");
