@@ -19,7 +19,7 @@ before touching anything under `dbt/src/models/sources/` or
 what the slides claim.
 
 `dbt/charts/` holds business dashboards ([dbt Charts](https://docs.dbtcharts.com/)) built on
-the same sources — they are a side showcase, not part of the data-quality narrative.
+the same sourcmes — they are a side showcase, not part of the data-quality narrative.
 
 ## Repo layout
 
@@ -41,16 +41,19 @@ from the root, never via `cd`, so that dbt's output paths (`docs/dbt_docs`,
     installed script (`generator_<name>`).
   - `entrypoints/chaos/` — the 5 chaos scenario scripts.
   - `utils/warehouse.py` — Snowflake connection/SQL helpers, no dbt dependency; reuses the
-    same `DBT_SNOWFLAKE_ACCOUNT`/`DBT_SNOWFLAKE_PAT` env vars as dbt's `profiles.yml`.
+    same `DBT_SNOWFLAKE_*` env vars as dbt's `profiles.yml`.
 - `docs/` — the gh-pages site. `docs/dbt_docs/`, `docs/elementary_report/` and `docs/charts/`
   are build output (gitignored, do not hand-edit); `docs/index.html` (portal) and
   `docs/presentation/` (the slides) are hand-written and committed.
 
 ## Commands
 
-Prerequisites: [`mise`](https://mise.jdx.dev/) (task runner) and [`uv`](https://docs.astral.sh/uv/)
-(installed automatically by mise). Requires a `.env` at the repo root with
-`DBT_SNOWFLAKE_ACCOUNT`, `DBT_SNOWFLAKE_PAT`, `SLACK_BOT_TOKEN` (mise loads it automatically).
+Prerequisite: [`mise`](https://mise.jdx.dev/) only — `uv` is declared under `[tools]` in
+`mise.toml` and installed by `mise run setup`, which also creates a `.env` with empty keys if
+missing (skipped when `CI` is set: mise's `.env` values override the process env, so empty keys
+would mask CI secrets). All connection settings come from `.env`, with no defaults:
+`DBT_SNOWFLAKE_ACCOUNT`/`PAT`/`USER`/`ROLE`/`WAREHOUSE`/`DATABASE`/`SCHEMA`,
+`SLACK_BOT_TOKEN`. In CI, ACCOUNT/PAT are GitHub secrets and the rest GitHub `vars`.
 
 ```bash
 mise tasks                # list all available tasks

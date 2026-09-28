@@ -3,7 +3,6 @@ version: 2
 sources:
   - name: raw_orders
     description: "Flux transactionnel des commandes, produit par l'equipe Orders."
-    database: jnadal_db
     schema: raw
     config:
       meta:

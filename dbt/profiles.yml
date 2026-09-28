@@ -1,12 +1,12 @@
 common: &common
   type: snowflake
-  schema: jnadal_db
-  warehouse: common_wh_xs
-  role: r_jnadal
-  user: jnadal
-  account: "{{ env_var('DBT_SNOWFLAKE_ACCOUNT')}}"
-  database: jnadal_db
+  account: "{{ env_var('DBT_SNOWFLAKE_ACCOUNT') }}"
   password: "{{ env_var('DBT_SNOWFLAKE_PAT') }}"
+  user: "{{ env_var('DBT_SNOWFLAKE_USER') }}"
+  role: "{{ env_var('DBT_SNOWFLAKE_ROLE') }}"
+  warehouse: "{{ env_var('DBT_SNOWFLAKE_WAREHOUSE') }}"
+  database: "{{ env_var('DBT_SNOWFLAKE_DATABASE') }}"
+  schema: "{{ env_var('DBT_SNOWFLAKE_SCHEMA') }}"
   threads: 4
 
 dbt_data_quality:

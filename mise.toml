@@ -1,3 +1,6 @@
+[tools]
+uv = "latest"
+
 [env]
 _.file = ".env"
 # prod par defaut : les modeles Elementary ne sont actives que sur ce target,
@@ -12,8 +15,23 @@ DEMO_SLACK_CHANNEL = "{{ get_env(name='DEMO_SLACK_CHANNEL', default='demo-data-q
 
 ### Task for setting up and running the dbt and data_generator projects
 [tasks.setup]
-description = "Install both projects' dependencies (dbt/ and data_generator/)"
+description = "Create .env if missing, install uv, then both projects' dependencies (dbt/ and data_generator/)"
 run = """
+# Skipped in CI: mise's .env values override the job's env, so empty keys would mask the secrets
+if [ -z "$CI" ] && [ ! -f .env ]; then
+  cat > .env <<'EOF'
+DBT_SNOWFLAKE_ACCOUNT=
+DBT_SNOWFLAKE_PAT=
+DBT_SNOWFLAKE_USER=
+DBT_SNOWFLAKE_ROLE=
+DBT_SNOWFLAKE_WAREHOUSE=
+DBT_SNOWFLAKE_DATABASE=
+DBT_SNOWFLAKE_SCHEMA=
+SLACK_BOT_TOKEN=
+EOF
+  echo "Created .env: fill in its values before running any other task"
+fi
+mise install uv
 uv sync --project dbt
 uv sync --project data_generator
 mise run dbt:deps
@@ -151,7 +169,7 @@ run = "uv run --project data_generator generator_chaos_drop_column"
 [tasks."demo:failures"]
 description = "Show the failing rows stored by store_failures for a given test"
 usage = 'arg "<test_name>" help="Test name, e.g. source_unique_raw_catalog_menu_items_item_id"'
-run = 'uv run --project dbt dbt show --project-dir dbt --profiles-dir dbt --target $DBT_TARGET --inline "select * from jnadal_db.dq_failures.{{usage.test_name}}"'
+run = 'uv run --project dbt dbt show --project-dir dbt --profiles-dir dbt --target $DBT_TARGET --inline "select * from $DBT_SNOWFLAKE_DATABASE.dq_failures.{{usage.test_name}}"'
 
 [tasks."demo:status"]
 description = "Orders per day and restaurants freshness, to check the state before presenting"

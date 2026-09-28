@@ -3,7 +3,6 @@ version: 2
 sources:
   - name: raw_catalog
     description: "Referentiel restaurants et cartes, produit par l'equipe Catalog."
-    database: jnadal_db
     schema: raw
     config:
       meta:

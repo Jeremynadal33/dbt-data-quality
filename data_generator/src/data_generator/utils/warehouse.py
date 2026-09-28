@@ -1,7 +1,7 @@
 """Snowflake connection and low-level SQL helpers, no dbt dependency.
 
-Reuses the same env vars as dbt's profiles.yml (DBT_SNOWFLAKE_ACCOUNT / DBT_SNOWFLAKE_PAT)
-so the generator and dbt always point at the same warehouse without a second secret.
+Reuses the same DBT_SNOWFLAKE_* env vars as dbt's profiles.yml so the
+generator and dbt always point at the same warehouse without a second secret.
 """
 
 from __future__ import annotations
@@ -13,22 +13,26 @@ from contextlib import contextmanager
 import snowflake.connector
 from snowflake.connector import SnowflakeConnection
 
-DATABASE = "jnadal_db"
+
+def _require_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise SystemExit(f"{name} must be set (see .env)")
+    return value
+
+
+DATABASE = _require_env("DBT_SNOWFLAKE_DATABASE")
 RAW_SCHEMA = "raw"
 INSERT_CHUNK_SIZE = 2000
 
 
 def _connection_params() -> dict[str, str]:
-    account = os.environ.get("DBT_SNOWFLAKE_ACCOUNT")
-    password = os.environ.get("DBT_SNOWFLAKE_PAT")
-    if not account or not password:
-        raise SystemExit("DBT_SNOWFLAKE_ACCOUNT and DBT_SNOWFLAKE_PAT must be set (see .env)")
     return {
-        "account": account,
-        "password": password,
-        "user": os.environ.get("SNOWFLAKE_USER", "jnadal"),
-        "role": os.environ.get("SNOWFLAKE_ROLE", "r_jnadal"),
-        "warehouse": os.environ.get("SNOWFLAKE_WAREHOUSE", "common_wh_xs"),
+        "account": _require_env("DBT_SNOWFLAKE_ACCOUNT"),
+        "password": _require_env("DBT_SNOWFLAKE_PAT"),
+        "user": _require_env("DBT_SNOWFLAKE_USER"),
+        "role": _require_env("DBT_SNOWFLAKE_ROLE"),
+        "warehouse": _require_env("DBT_SNOWFLAKE_WAREHOUSE"),
         "database": DATABASE,
         # No default `schema`: every statement below already fully qualifies
         # {DATABASE}.{RAW_SCHEMA}.<table>, and setting one here makes connect() fail

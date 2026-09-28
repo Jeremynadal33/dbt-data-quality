@@ -11,13 +11,11 @@ Elementary et les dashboards dbt Charts sur
 
 ### Prérequis
 
-- [`mise`](https://mise.jdx.dev/getting-started.html) — task runner + gestion des versions
-  Python.
-- [`uv`](https://docs.astral.sh/uv/getting-started/installation/) — package manager Python
-  (installé automatiquement via `mise` au premier `mise run`, sinon `pip install uv`).
-- Accès à un warehouse Snowflake (base `jnadal_db`, rôle `r_jnadal` par défaut — adapter
-  `dbt/profiles.yml`/`data_generator/src/data_generator/utils/warehouse.py` si tu utilises un
-  autre compte).
+- [`mise`](https://mise.jdx.dev/getting-started.html) — task runner + gestion des outils
+  ([`uv`](https://docs.astral.sh/uv/) est déclaré dans `mise.toml` et installé par
+  `mise run setup`).
+- Accès à un warehouse Snowflake — toute la connexion se configure dans `.env` (voir
+  ci-dessous), aucun fichier à modifier.
 
 ### Installation
 
@@ -25,8 +23,8 @@ Elementary et les dashboards dbt Charts sur
 git clone <ce repo>
 cd dbt-data-quality   # ou le nom de ton worktree
 
-cp .env.example .env  # si présent, sinon crée .env directement (voir ci-dessous)
-mise run setup        # uv sync : installe dbt, Elementary et le générateur
+mise run setup   # crée .env s'il n'existe pas, installe uv, puis dbt, Elementary et le générateur
+# renseigne ensuite les valeurs de .env (voir ci-dessous)
 ```
 
 Deux projets `uv` indépendants, chacun avec son propre `.venv` : `dbt/` (dbt + le CLI
@@ -40,13 +38,27 @@ tout depuis la racine sans jamais `cd`, via `uv run --project <dbt|data_generato
 
 ### Variables d'environnement (`.env`, jamais commité)
 
-```
-DBT_SNOWFLAKE_ACCOUNT=<compte Snowflake>
-DBT_SNOWFLAKE_PAT=<personal access token>
-SLACK_BOT_TOKEN=<xoxb-... pour les alertes Elementary>
-```
+`mise run setup` crée un `.env` avec toutes les clés vides s'il n'existe pas (jamais en CI).
+Toutes sont obligatoires (sauf le bot slack), sans valeur par défaut :
 
-`mise.toml` charge `.env` automatiquement (`[env] _.file = ".env"`).
+| Variable | Rôle |
+|---|---|
+| `DBT_SNOWFLAKE_ACCOUNT` | compte Snowflake |
+| `DBT_SNOWFLAKE_PAT` | personal access token |
+| `DBT_SNOWFLAKE_USER` | utilisateur |
+| `DBT_SNOWFLAKE_ROLE` | rôle |
+| `DBT_SNOWFLAKE_WAREHOUSE` | warehouse |
+| `DBT_SNOWFLAKE_DATABASE` | base (sources `raw`, Elementary, `dq_failures`) |
+| `DBT_SNOWFLAKE_SCHEMA` | schéma cible dbt |
+| `SLACK_BOT_TOKEN` | `xoxb-...` Optionnel pour les alertes Elementary |
+
+`dbt/profiles.yml` et le générateur (`data_generator/.../utils/warehouse.py`) lisent les mêmes
+variables `DBT_SNOWFLAKE_*`. `mise.toml` charge `.env` automatiquement
+(`[env] _.file = ".env"`) — attention, ses valeurs écrasent celles du shell.
+
+En CI, `DBT_SNOWFLAKE_ACCOUNT`/`DBT_SNOWFLAKE_PAT` sont des *secrets* GitHub, les autres
+`DBT_SNOWFLAKE_*` des *variables* GitHub (Settings → Secrets and variables →
+Actions), `SLACK_BOT_TOKEN` n'y est pas utilisé.
 
 ### Premiers pas
 

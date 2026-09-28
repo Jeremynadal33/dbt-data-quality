@@ -28,6 +28,11 @@ jobs:
         env:
           DBT_SNOWFLAKE_ACCOUNT: ${{ secrets.DBT_SNOWFLAKE_ACCOUNT }}
           DBT_SNOWFLAKE_PAT: ${{ secrets.DBT_SNOWFLAKE_PAT }}
+          DBT_SNOWFLAKE_USER: ${{ vars.DBT_SNOWFLAKE_USER }}
+          DBT_SNOWFLAKE_ROLE: ${{ vars.DBT_SNOWFLAKE_ROLE }}
+          DBT_SNOWFLAKE_WAREHOUSE: ${{ vars.DBT_SNOWFLAKE_WAREHOUSE }}
+          DBT_SNOWFLAKE_DATABASE: ${{ vars.DBT_SNOWFLAKE_DATABASE }}
+          DBT_SNOWFLAKE_SCHEMA: ${{ vars.DBT_SNOWFLAKE_SCHEMA }}
           DBT_TARGET: prod
         run: mise run ci:run
 
@@ -35,6 +40,11 @@ jobs:
         env:
           DBT_SNOWFLAKE_ACCOUNT: ${{ secrets.DBT_SNOWFLAKE_ACCOUNT }}
           DBT_SNOWFLAKE_PAT: ${{ secrets.DBT_SNOWFLAKE_PAT }}
+          DBT_SNOWFLAKE_USER: ${{ vars.DBT_SNOWFLAKE_USER }}
+          DBT_SNOWFLAKE_ROLE: ${{ vars.DBT_SNOWFLAKE_ROLE }}
+          DBT_SNOWFLAKE_WAREHOUSE: ${{ vars.DBT_SNOWFLAKE_WAREHOUSE }}
+          DBT_SNOWFLAKE_DATABASE: ${{ vars.DBT_SNOWFLAKE_DATABASE }}
+          DBT_SNOWFLAKE_SCHEMA: ${{ vars.DBT_SNOWFLAKE_SCHEMA }}
           DBT_TARGET: prod
         # The Elementary report could fail if we update elementary version and the schema changes
         # So we need to run dbt run --select elementary --target prod (or prod) first
