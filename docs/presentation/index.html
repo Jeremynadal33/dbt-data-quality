@@ -547,60 +547,75 @@
             <div class="cmd"><pre>mise run demo:verify</pre></div>
         </section>
 
-        <section class="slide slide--memo">
-            <span class="memo-tag">Aide-mémoire · N1 Valide</span>
-            <h2>N1 — le contrat</h2>
-            <h3><code>unique</code> sur <code>menu_items.item_id</code></h3>
-            <div class="cmd"><pre>mise run demo:chaos:duplicate-menu-item &amp;&amp; mise run demo:verify</pre></div>
-            <p class="expected">Attendu : <strong>FAIL 1</strong> source_unique_raw_catalog_menu_items_item_id</p>
+        <section class="slide">
+            <h2>Partie 1 — Le catalogue bouge</h2>
+            <div class="cmd"><pre>mise run demo:menu-items</pre></div>
+            <div class="columns">
+                <div class="card card--accent">
+                    <h3>Pendant que ça tourne</h3>
+                    <ul>
+                        <li>L'équipe Catalog duplique un plat : même <code>item_id</code> deux fois</li>
+                        <li>Une ligne de commande pointe vers un plat qui n'existe pas</li>
+                        <li>Une migration supprime la colonne <code>label</code> de <code>menu_items</code></li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3>Ce qui doit casser</h3>
+                    <ul>
+                        <li><strong>N1</strong> <code>unique</code> sur <code>menu_items.item_id</code></li>
+                        <li><strong>N1</strong> <code>relationships</code> <code>order_lines → menu_items</code></li>
+                        <li><strong>N3</strong> <code>schema_changes_from_baseline</code>, dès le 1er run</li>
+                    </ul>
+                </div>
+            </div>
+            <p class="expected">Puis : alertes Slack avec l'owner <code>@catalog-team</code> / <code>@orders-team</code> et rapport Elementary régénéré</p>
             <div class="cmd"><pre>mise run demo:failures source_unique_raw_catalog_menu_items_item_id</pre></div>
-            <h3><code>relationships</code> sur <code>order_lines.item_id → menu_items.item_id</code></h3>
-            <div class="cmd"><pre>mise run demo:chaos:orphan-menu-item &amp;&amp; mise run demo:verify</pre></div>
-            <p class="expected">Attendu : <strong>FAIL 1</strong> source_relationships_raw_orders_order_lines_item_id__…</p>
-            <h3>Repartir propre</h3>
-            <div class="cmd"><pre>mise run demo:reset &amp;&amp; mise run demo:history</pre></div>
         </section>
 
-        <section class="slide slide--memo">
-            <span class="memo-tag">Aide-mémoire · N2 Présente</span>
-            <h2>N2 — la présence</h2>
-            <div class="cmd"><pre>mise run demo:chaos:late-restaurant &amp;&amp; mise run demo:verify</pre></div>
-            <p class="expected">Attendu : <code>dbt test</code> tout vert, mais <strong>ERROR STALE</strong> freshness of raw_catalog.restaurants</p>
-            <ul class="checklist">
-                <li>Dire : <code>unique</code>, <code>not_null</code>, <code>accepted_values</code> ne regardent jamais l'horloge</li>
-                <li>Montrer <code>loaded_at_field: synced_at</code> + <code>warn_after</code>/<code>error_after</code> dans le YAML</li>
-            </ul>
-            <h3>Repartir propre</h3>
-            <div class="cmd"><pre>mise run demo:reset &amp;&amp; mise run demo:history</pre></div>
+        <section class="slide">
+            <h2>Partie 2 — Le restaurant qui ne répond plus</h2>
+            <div class="cmd"><pre>mise run demo:late-restaurant</pre></div>
+            <div class="columns">
+                <div class="card card--accent">
+                    <h3>Pendant que ça tourne</h3>
+                    <ul>
+                        <li>La synchro d'un restaurant s'arrête : son <code>synced_at</code> date de 4 jours</li>
+                        <li>Aucune ligne n'est fausse : la donnée est juste <strong>vieille</strong></li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3>Ce qui doit casser</h3>
+                    <ul>
+                        <li><code>dbt test</code> : tout vert</li>
+                        <li><strong>N2</strong> <code>dbt source freshness</code> : <strong>ERROR STALE</strong> sur <code>restaurants</code></li>
+                    </ul>
+                </div>
+            </div>
+            <p class="expected">Les tests de forme ne regardent jamais l'horloge : <code>loaded_at_field</code> + <code>warn_after</code>/<code>error_after</code> dans le YAML</p>
         </section>
 
-        <section class="slide slide--memo">
-            <span class="memo-tag">Aide-mémoire · N3 Plausible</span>
-            <h2>N3 — le twist</h2>
-            <div class="cmd"><pre>mise run demo:verify</pre></div>
-            <p class="expected">Point de départ : tout vert, freshness PASS</p>
-            <div class="warning"><code>demo:chaos:drop-column</code> doit passer <strong>après</strong> <code>demo:chaos:duplicate-menu-item</code> si les deux sont joués.</div>
-            <div class="cmd"><pre>mise run demo:chaos:new-restaurant-volume &amp;&amp; mise run demo:chaos:drop-column &amp;&amp; mise run demo:verify</pre></div>
-            <p class="expected">Attendu : <strong>FAIL</strong> volume_anomalies_raw_orders_orders · <strong>FAIL</strong> schema_changes_from_baseline_raw_catalog_menu_items</p>
-            <ul class="checklist">
-                <li>Chaque commande est valide individuellement : seul le test sur la série temporelle réagit</li>
-                <li><code>schema_changes_from_baseline</code> détecte dès le 1er run (≠ <code>schema_changes</code>)</li>
-                <li><strong>Ne pas resetter</strong> : les anomalies doivent rester « pending » pour N4</li>
-            </ul>
-        </section>
-
-        <section class="slide slide--memo">
-            <span class="memo-tag">Aide-mémoire · N4 Actionnable</span>
-            <h2>N4 — l'action</h2>
-            <div class="cmd"><pre>mise run demo:alert</pre></div>
-            <p class="expected">Attendu : 2 messages dans le channel Slack <code>demo-data-quality</code>, un par test, avec l'owner mentionné</p>
-            <ul class="checklist">
-                <li>Montrer <code>meta.owner</code> / <code>alerts_config.subscribers</code> dans les sources</li>
-                <li>Ouvrir Slack</li>
-                <li>Ouvrir le rapport Elementary : historique, graphe du volume avec le pic</li>
-            </ul>
-            <div class="cmd"><pre>mise run webapp:build:force &amp;&amp; mise run webapp:serve</pre></div>
-            <p><a href="http://localhost:8000/elementary_report/" target="_blank">localhost:8000/elementary_report</a></p>
+        <section class="slide">
+            <h2>Partie 3 — Le nouveau venu trop pressé</h2>
+            <div class="cmd"><pre>mise run demo:new-restaurant-volume</pre></div>
+            <div class="columns">
+                <div class="card card--accent">
+                    <h3>Pendant que ça tourne</h3>
+                    <ul>
+                        <li>Un restaurant sans aucune commande en reçoit soudain 10× le volume d'une journée</li>
+                        <li>Chaque commande est valide individuellement</li>
+                        <li>Son commentaire devient… douteux</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3>Ce qui doit casser</h3>
+                    <ul>
+                        <li><strong>N3</strong> <code>volume_anomalies</code> sur <code>orders</code> : seule la série temporelle réagit</li>
+                        <li><strong>N3</strong> <code>is_acceptable</code> sur <code>restaurants.comment</code> : test custom qui appelle un LLM via une UDF Snowflake</li>
+                    </ul>
+                </div>
+            </div>
+            <p class="expected">Puis : alertes Slack + rapport Elementary, avec le pic sur le graphe de volume</p>
+            <p><a href="http://localhost:8000/elementary_report/elementary_report.html" target="_blank">localhost:8000/elementary_report/elementary_report.html</a></p>
         </section>
 
         <section class="slide">
