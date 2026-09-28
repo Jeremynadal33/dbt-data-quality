@@ -34,6 +34,14 @@ sources:
               - accepted_values:
                   arguments:
                     values: [italian, japanese, french, indian, lebanese, mexican]
+          - name: comment
+            description: "Commentaire libre sur le restaurant, dont l'acceptabilite est evaluee par Jev."
+            # Test NON REJOUABLE tel quel : is_acceptable appelle la UDF Snowflake
+            # udf.is_restaurant_acceptable, creee a la main hors du projet
+            # (snowflake/jev_udf.sql) et qui appelle une API externe payante (OpenRouter).
+            # Le commenter quand l'UDF n'existe pas dans le compte.
+            data_tests:
+              - is_acceptable
 
       - name: menu_items
         description: "Cartes des restaurants. Le schema est surveille par Elementary."

@@ -20,3 +20,11 @@
 * dbt unit_tests : https://docs.getdbt.com/docs/build/unit-tests?version=2
 * dbt x metric flow & semantic layer : https://docs.getdbt.com/docs/build/build-metrics-intro?version=2 
 * widely used & community => easy to recrute & loads of ready to use packages
+
+
+### Must say
+* Technos qu'on a vu
+    * :warning: technos parfois complexes et lourdes à utiliser
+    * Parfois pas d'UI centralisée
+    * DMF cool as code, integration avec l'ui cool au niveau table mais pas global mais n'a pas tout : on peut pas stopper le workflow, pas de cross table checks, difficile à mettre dans une CI. 
+    * Evidemment, pour les équipes qui utilisent déjà dbt, c'est tjrs un outil supplémentaire 

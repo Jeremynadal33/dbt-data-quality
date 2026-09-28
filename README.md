@@ -33,7 +33,7 @@ deux (`uv sync --project dbt` puis `uv sync --project data_generator`) ; `mise.t
 tout depuis la racine sans jamais `cd`, via `uv run --project <dbt|data_generator> ...`.
 
 `mise run setup` construit aussi le package `data_generator/` et installe ses commandes dans
-`data_generator/.venv/bin/` (`generator_history`, `generator_reset`, `generator_create_chaos`,
+`data_generator/.venv/bin/` (`generator_history`, `generator_reset`, `generator_create_chaos`, `generator_chaos_menu_items`,
 `generator_chaos_*`) — vérifiable avec `ls data_generator/.venv/bin | grep generator_`.
 
 ### Variables d'environnement (`.env`, jamais commité)
@@ -68,9 +68,10 @@ mise run demo:history  # charge 30 jours de donnees propres + rafraichit Element
 mise run demo:status   # verifie l'etat (commandes/jour, fraicheur) avant de presenter
 ```
 
-Pour dérouler la démo complète, suis la [présentation](./docs/presentation/index.html) — chaque
-scénario de chaos y est déclenché individuellement via sa tâche `mise run demo:chaos:<nom>`
-(injection seule : enchaîner `mise run demo:verify` pour voir le test casser).
+Pour dérouler la démo complète, suis la [présentation](./docs/presentation/index.html) — elle se
+joue en 3 parties, une tâche chacune : `demo:menu-items`, `demo:late-restaurant`,
+`demo:new-restaurant-volume`. Chaque tâche repart d'un historique propre (reset + history),
+injecte son chaos, puis enchaîne `demo:verify`, `demo:alert` et `elementary:report`.
 
 ### Tâches utiles
 
@@ -80,6 +81,9 @@ scénario de chaos y est déclenché individuellement via sa tâche `mise run de
 | `mise run demo:history` | (re)charge un historique propre de 30 jours |
 | `uv run --project data_generator generator_new_day` | ajoute une journée propre à l'historique (job quotidien, voir plus bas) |
 | `mise run demo:verify` | reconstruit les modèles Elementary et rejoue `dbt test` + `dbt source freshness` |
+| `mise run demo:menu-items` | partie 1 : doublon + plat orphelin + suppression de `label` |
+| `mise run demo:late-restaurant` | partie 2 : restaurant figé (casse le freshness) |
+| `mise run demo:new-restaurant-volume` | partie 3 : pic de commandes + commentaire douteux |
 | `mise run demo:chaos` | injecte les 5 scénarios de chaos dans l'ordre sûr, puis re-teste et alerte |
 | `mise run demo:chaos:<nom>` | injecte un seul scénario : `duplicate-menu-item`, `orphan-menu-item`, `new-restaurant-volume`, `late-restaurant`, `drop-column` |
 | `mise run demo:failures <test>` | affiche les lignes fautives stockées par `store_failures` pour un test |
@@ -152,3 +156,24 @@ Les deux lancent d'abord `dbt parse` : `source()` est résolu à partir de
 `dbt/target/manifest.json`. Les liens entre boards s'écrivent sous la forme `<board>/`
 (ex. `restaurant_insights/`), la seule qui marche à la fois dans `dct serve` et dans le rendu
 statique.
+
+## La UDF Jev (acceptabilité des restaurants)
+
+`restaurants.comment` contient un commentaire libre, anodin pour tous les restaurants
+(« Restaurant à thème marin »…). Le scénario `new-restaurant-volume` remplace celui du
+restaurant "dormant" par un commentaire inacceptable (blanchiment d'argent). Le test custom
+`is_acceptable` (`dbt/src/tests/generic/is_acceptable.sql`) le détecte en appelant une UDF
+Python Snowflake, qui interroge le modèle Jev de TypeSafe via OpenRouter
+(`api/alpha/decisions`) et renvoie un score entre 0 (inacceptable) et 1 (acceptable). Le
+test échoue sous 0,5.
+
+> **Partie non rejouable.** Aucune tâche `mise` ni la CI ne crée la UDF, et elle appelle
+> une API payante. L'appel à `is_acceptable` dans `_catalog__sources.yml` doit donc être
+> **commenté**, pour que le reste du projet tourne sans la UDF. Ne le décommenter que
+> lorsque la UDF n'existe pas dans le compte.
+
+La UDF se crée **une seule fois, à la main**, en exécutant `data_generator/snowflake/jev_udf.sql` dans un
+worksheet Snowflake (rôle `ACCOUNTADMIN`, placeholders `<database>`, `<role>` et
+`<openrouter_api_key>` à remplacer). Elle vit dans un schéma `udf` dédié, que
+`mise run demo:reset` ne supprime pas. Chaque ligne évaluée déclenche un appel HTTP payant
+(~0,000014 $).

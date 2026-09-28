@@ -39,9 +39,12 @@ from the root, never via `cd`, so that dbt's output paths (`docs/dbt_docs`,
   - `entrypoints/` — one module per CLI command (see `entrypoints/history.py` for the
     pattern). Each entrypoint is callable directly as `entrypoint(**kwargs)` or via its
     installed script (`generator_<name>`).
-  - `entrypoints/chaos/` — the 5 chaos scenario scripts.
+  - `entrypoints/chaos/` — the 5 chaos scenario scripts; `entrypoints/chaos_menu_items.py`
+    chains the 3 menu_items ones for demo part 1.
   - `utils/warehouse.py` — Snowflake connection/SQL helpers, no dbt dependency; reuses the
     same `DBT_SNOWFLAKE_*` env vars as dbt's `profiles.yml`.
+- `data_generator/snowflake/jev_udf.sql` — one-off, hand-run setup of the Jev UDF (network rule, secret,
+  external access integration, Python UDF). Not run by any `mise` task.
 - `docs/` — the gh-pages site. `docs/dbt_docs/`, `docs/elementary_report/` and `docs/charts/`
   are build output (gitignored, do not hand-edit); `docs/index.html` (portal) and
   `docs/presentation/` (the slides) are hand-written and committed.
@@ -65,6 +68,9 @@ mise run dbt:test          # run dbt_data_quality tests + dbt source freshness
 mise run demo:verify       # dbt:run + dbt:test (shared by history/new-day/chaos tasks)
 mise run demo:history      # load 30 clean days ending yesterday, then demo:verify
 mise run demo:new-day      # append one more clean day (meant for a daily cron)
+mise run demo:menu-items            # demo part 1: reset+history, duplicate+orphan+drop-column, verify, alert, report
+mise run demo:late-restaurant       # demo part 2: same, with late-restaurant
+mise run demo:new-restaurant-volume # demo part 3: same, with new-restaurant-volume
 mise run demo:chaos        # run all 5 chaos scenarios in the safe order, then verify + alert
 mise run demo:alert        # send pending Elementary alerts to Slack
 mise run demo:status       # orders/day + restaurant freshness snapshot
@@ -104,9 +110,18 @@ Snowflake account — Elementary models are only enabled on `prod` (see `dbt_pro
   with zero orders (`domain.py: _dormant_restaurant_id`/`find_dormant_restaurant`). It exists
   in `restaurants`/`menu_items` (so FKs stay valid) with a fresh `synced_at`, but never
   receives orders during normal history loading. It's the pivot for two chaos scenarios:
-  `new_restaurant_volume` (its first burst of orders — triggers `elementary.volume_anomalies`)
-  and `late_restaurant` (freezing its `synced_at` — breaks `dbt source freshness` without
+  `new_restaurant_volume` (its first burst of orders — triggers `elementary.volume_anomalies`
+  — plus an unacceptable `comment`, see below) and `late_restaurant` (freezing its `synced_at` — breaks `dbt source freshness` without
   touching `dbt test`). Chaos scripts always rediscover its id dynamically, never hardcode it.
+- **`restaurants.comment` + Jev UDF**: every restaurant gets a harmless comment
+  (`domain.py: RESTAURANT_COMMENTS`, picked by index so the seeded rng/Faker sequence is
+  unchanged); `new_restaurant_volume` overwrites the dormant one with a money-laundering
+  comment. It is checked by the custom test `dbt/src/tests/generic/is_acceptable.sql`,
+  which calls a Snowflake Python UDF hitting Jev (OpenRouter `api/alpha/decisions`),
+  created by hand from `data_generator/snowflake/jev_udf.sql` in a dedicated `udf` schema — outside
+  `demo:reset`'s `drop schema ... cascade`. **Not replayable**: no task/CI creates the UDF
+  and it calls a paid API, so the `is_acceptable` usage in `_catalog__sources.yml` must
+  be commented out (the rest of the project, CI included, must run without the UDF) if the function does not exist in the Snowflake environment;
 - **`store_failures`**: enabled globally for `dbt_data_quality` tests (`dbt_project.yml`),
   materializing failing rows into the `dq_failures` schema for direct SQL inspection instead
   of just a pass/fail count.

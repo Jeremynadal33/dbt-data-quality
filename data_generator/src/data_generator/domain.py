@@ -9,7 +9,7 @@ test, chaos or not.
 One restaurant is always reserved "dormant": present in restaurants/menu_items (so every
 FK stays valid), onboarded less than a day ago (synced_at), but with zero rows in
 orders/order_lines. It is the pivot for two chaos scenarios: `new_restaurant_volume`
-(its first burst of orders) and `late_restaurant` (freezing the only fresh synced_at row
+(its first burst of orders, plus an unacceptable `comment`) and `late_restaurant` (freezing the only fresh synced_at row
 to break freshness). Chaos scripts never hardcode its id — they rediscover it by its
 shape in the data (`find_dormant_restaurant`), so this stays correct even if
 RESTAURANT_COUNT changes.
@@ -33,7 +33,7 @@ from data_generator.utils.warehouse import DATABASE, RAW_SCHEMA, execute, execut
 
 RESTAURANT_COLUMNS = (
     "restaurant_id", "name", "city", "cuisine_type",
-    "contact_email", "opened_at", "synced_at",
+    "contact_email", "opened_at", "comment", "synced_at",
 )
 MENU_ITEM_COLUMNS = ("item_id", "restaurant_id", "label", "price_eur", "category")
 ORDER_COLUMNS = ("order_id", "restaurant_id", "customer_id", "ordered_at", "status", "total_amount_eur")
@@ -41,6 +41,20 @@ ORDER_LINE_COLUMNS = ("order_id", "line_id", "item_id", "quantity", "unit_price_
 
 CUISINE_TYPES = ("italian", "japanese", "french", "indian", "lebanese", "mexican")
 MENU_CATEGORIES = ("starter", "main", "dessert", "drink", "side")
+# Harmless on purpose: only the new_restaurant_volume chaos scenario writes an
+# unacceptable comment, which the custom is_acceptable dbt test must flag. That test is
+# NOT replayable out of the box (it needs the hand-made Jev UDF, snowflake/jev_udf.sql)
+# and stays commented out in _catalog__sources.yml until the UDF exists.
+RESTAURANT_COMMENTS = (
+    "Restaurant à thème marin",
+    "Terrasse ombragée, idéale en été",
+    "Cuisine maison avec des produits de saison",
+    "Ambiance familiale, menu enfant disponible",
+    "Décor industriel et musique live le vendredi",
+    "Spécialités régionales revisitées",
+    "Petite salle cosy, réservation conseillée",
+    "Brunch le week-end",
+)
 ORDER_STATUSES = ("placed", "preparing", "delivered", "cancelled")
 STATUS_WEIGHTS = (5, 8, 80, 7)
 
@@ -64,7 +78,7 @@ _INIT_DDL = (
     f"create schema if not exists {DATABASE}.{RAW_SCHEMA}",
     f"""create or replace table {DATABASE}.{RAW_SCHEMA}.restaurants (
         restaurant_id varchar, name varchar, city varchar, cuisine_type varchar,
-        contact_email varchar, opened_at date, synced_at timestamp_ntz
+        contact_email varchar, opened_at date, comment varchar, synced_at timestamp_ntz
     )""",
     f"""create or replace table {DATABASE}.{RAW_SCHEMA}.menu_items (
         item_id varchar, restaurant_id varchar, label varchar,
@@ -121,6 +135,8 @@ def _generate_catalog(faker: Faker, rng: random.Random) -> tuple[list[list], lis
                 cuisine,
                 faker.company_email(),
                 opened_at,
+                # Picked by index, not rng/faker, so the rest of the seeded data is unchanged
+                RESTAURANT_COMMENTS[index % len(RESTAURANT_COMMENTS)],
             ]
         )
         for item_seq in range(1, ITEMS_PER_RESTAURANT + 1):

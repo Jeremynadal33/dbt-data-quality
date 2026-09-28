@@ -30,13 +30,17 @@ SEQUENCE = (
 default_config: dict = {}
 
 
-def entrypoint(**kwargs) -> list[str]:
+def run_sequence(sequence) -> list[str]:
     messages = []
-    for module in SEQUENCE:
+    for module in sequence:
         name = module.__name__.rsplit(".", 1)[-1]
         message = module.entrypoint()
         messages.append(f"[{name}] {message}")
     return messages
+
+
+def entrypoint(**kwargs) -> list[str]:
+    return run_sequence(SEQUENCE)
 
 
 def parse_args() -> argparse.Namespace:
