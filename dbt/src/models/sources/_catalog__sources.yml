@@ -73,9 +73,7 @@ sources:
           - name: price_eur
             data_type: number
             data_tests:
-              - is_positive:
-                  config:
-                    severity: warn
+              - is_positive
           - name: category
             data_type: varchar
             data_tests:

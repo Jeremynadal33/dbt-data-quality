@@ -35,6 +35,7 @@ mise install uv
 uv sync --project dbt
 uv sync --project data_generator
 mise run dbt:deps
+mise run dbt:run
 """
 
 ### Just wrap the dbt commands with uv run
@@ -113,7 +114,6 @@ uv run --project dbt dct serve --project-dir dbt --target $DBT_TARGET
 [tasks."demo:verify"]
 description = "Rebuild Elementary's internal models and run the full test suite (shared by demo:history/new-day/chaos)"
 run = """
-mise run dbt:run
 mise run dbt:test
 """
 
@@ -121,9 +121,8 @@ mise run dbt:test
 [tasks."demo:history"]
 description = "Load 30 clean days (ending yesterday) and refresh Elementary + the report"
 run = """
-uv run --project data_generator generator_history --days 30
-mise run demo:verify
-mise run elementary:report
+uv run --project data_generator generator_history --days 15
+mise run dbt:run
 """
 
 ### Append a new day of history each day in gha
@@ -148,30 +147,19 @@ mise run webapp:serve
 ### The 3 parts of the live demo, each replayed against fresh history.
 # `|| true` after demo:verify: a failing test/freshness is the expected outcome, and must
 # not stop the alert + report steps.
-[tasks."demo:menu-items"]
-description = "Demo part 1: reset, then duplicate + orphan menu item + drop label, verify, alert, report"
+[tasks."demo:part-1"]
+description = "Demo part 1: reset, then duplicate + orphan menu item + late restaurant + drop label, verify, alert, report"
 run = """
 mise run demo:reset
 mise run demo:history
-uv run --project data_generator generator_chaos_menu_items
+uv run --project data_generator generator_chaos_catalog
 mise run demo:verify || true
 mise run demo:alert
 mise run elementary:report
 """
 
-[tasks."demo:late-restaurant"]
-description = "Demo part 2: reset, then freeze a restaurant's synced_at, verify, alert, report"
-run = """
-mise run demo:reset
-mise run demo:history
-uv run --project data_generator generator_chaos_late_restaurant
-mise run demo:verify || true
-mise run demo:alert
-mise run elementary:report
-"""
-
-[tasks."demo:new-restaurant-volume"]
-description = "Demo part 3: reset, then order burst + suspicious comment on the dormant restaurant, verify, alert, report"
+[tasks."demo:part-2"]
+description = "Demo part 2: reset, then order burst + suspicious comment on the dormant restaurant, verify, alert, report"
 run = """
 mise run demo:reset
 mise run demo:history

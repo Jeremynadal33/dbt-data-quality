@@ -1,7 +1,7 @@
-"""Demo part 1: runs the 3 menu_items-related chaos scenarios in sequence.
+"""Demo part 1: runs the 4 Catalog-related chaos scenarios in sequence.
 
-Breaks unique(menu_items.item_id), relationships(order_lines.item_id -> menu_items.item_id)
-and schema_changes_from_baseline on menu_items — nothing else.
+Breaks unique(menu_items.item_id), relationships(order_lines.item_id -> menu_items.item_id),
+schema_changes_from_baseline on menu_items and source freshness on restaurants — nothing else.
 
 drop_column runs last: duplicate_menu_item's INSERT explicitly lists the `label` column.
 """
@@ -10,12 +10,18 @@ from __future__ import annotations
 
 import argparse
 
-from data_generator.entrypoints.chaos import drop_column, duplicate_menu_item, orphan_menu_item
+from data_generator.entrypoints.chaos import (
+    drop_column,
+    duplicate_menu_item,
+    late_restaurant,
+    orphan_menu_item,
+)
 from data_generator.entrypoints.create_chaos import run_sequence
 
 SEQUENCE = (
     duplicate_menu_item,
     orphan_menu_item,
+    late_restaurant,
     drop_column,  # last: see module docstring
 )
 

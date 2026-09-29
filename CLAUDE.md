@@ -39,8 +39,8 @@ from the root, never via `cd`, so that dbt's output paths (`docs/dbt_docs`,
   - `entrypoints/` — one module per CLI command (see `entrypoints/history.py` for the
     pattern). Each entrypoint is callable directly as `entrypoint(**kwargs)` or via its
     installed script (`generator_<name>`).
-  - `entrypoints/chaos/` — the 5 chaos scenario scripts; `entrypoints/chaos_menu_items.py`
-    chains the 3 menu_items ones for demo part 1.
+  - `entrypoints/chaos/` — the 5 chaos scenario scripts; `entrypoints/chaos_catalog.py`
+    chains the 4 Catalog ones (all but new_restaurant_volume) for demo part 1.
   - `utils/warehouse.py` — Snowflake connection/SQL helpers, no dbt dependency; reuses the
     same `DBT_SNOWFLAKE_*` env vars as dbt's `profiles.yml`.
 - `data_generator/snowflake/jev_udf.sql` — one-off, hand-run setup of the Jev UDF (network rule, secret,
@@ -68,9 +68,8 @@ mise run dbt:test          # run dbt_data_quality tests + dbt source freshness
 mise run demo:verify       # dbt:run + dbt:test (shared by history/new-day/chaos tasks)
 mise run demo:history      # load 30 clean days ending yesterday, then demo:verify
 mise run demo:new-day      # append one more clean day (meant for a daily cron)
-mise run demo:menu-items            # demo part 1: reset+history, duplicate+orphan+drop-column, verify, alert, report
-mise run demo:late-restaurant       # demo part 2: same, with late-restaurant
-mise run demo:new-restaurant-volume # demo part 3: same, with new-restaurant-volume
+mise run demo:catalog               # demo part 1: reset+history, duplicate+orphan+late-restaurant+drop-column, verify, alert, report
+mise run demo:new-restaurant-volume # demo part 2: same, with new-restaurant-volume
 mise run demo:chaos        # run all 5 chaos scenarios in the safe order, then verify + alert
 mise run demo:alert        # send pending Elementary alerts to Slack
 mise run demo:status       # orders/day + restaurant freshness snapshot

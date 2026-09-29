@@ -33,7 +33,7 @@ deux (`uv sync --project dbt` puis `uv sync --project data_generator`) ; `mise.t
 tout depuis la racine sans jamais `cd`, via `uv run --project <dbt|data_generator> ...`.
 
 `mise run setup` construit aussi le package `data_generator/` et installe ses commandes dans
-`data_generator/.venv/bin/` (`generator_history`, `generator_reset`, `generator_create_chaos`, `generator_chaos_menu_items`,
+`data_generator/.venv/bin/` (`generator_history`, `generator_reset`, `generator_create_chaos`, `generator_chaos_catalog`,
 `generator_chaos_*`) — vérifiable avec `ls data_generator/.venv/bin | grep generator_`.
 
 ### Variables d'environnement (`.env`, jamais commité)
@@ -69,7 +69,7 @@ mise run demo:status   # verifie l'etat (commandes/jour, fraicheur) avant de pre
 ```
 
 Pour dérouler la démo complète, suis la [présentation](./docs/presentation/index.html) — elle se
-joue en 3 parties, une tâche chacune : `demo:menu-items`, `demo:late-restaurant`,
+joue en 2 parties, une tâche chacune : `demo:catalog`,
 `demo:new-restaurant-volume`. Chaque tâche repart d'un historique propre (reset + history),
 injecte son chaos, puis enchaîne `demo:verify`, `demo:alert` et `elementary:report`.
 
@@ -81,9 +81,8 @@ injecte son chaos, puis enchaîne `demo:verify`, `demo:alert` et `elementary:rep
 | `mise run demo:history` | (re)charge un historique propre de 30 jours |
 | `uv run --project data_generator generator_new_day` | ajoute une journée propre à l'historique (job quotidien, voir plus bas) |
 | `mise run demo:verify` | reconstruit les modèles Elementary et rejoue `dbt test` + `dbt source freshness` |
-| `mise run demo:menu-items` | partie 1 : doublon + plat orphelin + suppression de `label` |
-| `mise run demo:late-restaurant` | partie 2 : restaurant figé (casse le freshness) |
-| `mise run demo:new-restaurant-volume` | partie 3 : pic de commandes + commentaire douteux |
+| `mise run demo:catalog` | partie 1 : doublon + plat orphelin + restaurant figé (freshness) + suppression de `label` |
+| `mise run demo:new-restaurant-volume` | partie 2 : pic de commandes + commentaire douteux |
 | `mise run demo:chaos` | injecte les 5 scénarios de chaos dans l'ordre sûr, puis re-teste et alerte |
 | `mise run demo:chaos:<nom>` | injecte un seul scénario : `duplicate-menu-item`, `orphan-menu-item`, `new-restaurant-volume`, `late-restaurant`, `drop-column` |
 | `mise run demo:failures <test>` | affiche les lignes fautives stockées par `store_failures` pour un test |
