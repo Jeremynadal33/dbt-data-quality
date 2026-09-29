@@ -583,13 +583,14 @@
 
         <section class="slide">
             <h2>Partie 1 — Le catalogue bouge</h2>
-            <div class="cmd"><pre>mise run demo:menu-items</pre></div>
+            <div class="cmd"><pre>mise run demo:catalog</pre></div>
             <div class="columns">
                 <div class="card card--accent">
                     <h3>Pendant que ça tourne</h3>
                     <ul>
                         <li>L'équipe Catalog duplique un plat : même <code>item_id</code> deux fois</li>
                         <li>Une ligne de commande pointe vers un plat qui n'existe pas</li>
+                        <li>La synchro d'un restaurant s'arrête : son <code>synced_at</code> date de 4 jours (donnée juste <strong>vieille</strong>)</li>
                         <li>Une migration supprime la colonne <code>label</code> de <code>menu_items</code></li>
                     </ul>
                 </div>
@@ -598,6 +599,7 @@
                     <ul>
                         <li><strong>N1</strong> <code>unique</code> sur <code>menu_items.item_id</code></li>
                         <li><strong>N1</strong> <code>relationships</code> <code>order_lines → menu_items</code></li>
+                        <li><strong>N2</strong> <code>dbt source freshness</code> : <strong>ERROR STALE</strong> sur <code>restaurants</code> (<code>dbt test</code> reste vert sur ce point)</li>
                         <li><strong>N3</strong> <code>schema_changes_from_baseline</code>, dès le 1er run</li>
                     </ul>
                 </div>
@@ -607,29 +609,7 @@
         </section>
 
         <section class="slide">
-            <h2>Partie 2 — Le restaurant qui ne répond plus</h2>
-            <div class="cmd"><pre>mise run demo:late-restaurant</pre></div>
-            <div class="columns">
-                <div class="card card--accent">
-                    <h3>Pendant que ça tourne</h3>
-                    <ul>
-                        <li>La synchro d'un restaurant s'arrête : son <code>synced_at</code> date de 4 jours</li>
-                        <li>Aucune ligne n'est fausse : la donnée est juste <strong>vieille</strong></li>
-                    </ul>
-                </div>
-                <div class="card">
-                    <h3>Ce qui doit casser</h3>
-                    <ul>
-                        <li><code>dbt test</code> : tout vert</li>
-                        <li><strong>N2</strong> <code>dbt source freshness</code> : <strong>ERROR STALE</strong> sur <code>restaurants</code></li>
-                    </ul>
-                </div>
-            </div>
-            <p class="expected">Les tests de forme ne regardent jamais l'horloge : <code>loaded_at_field</code> + <code>warn_after</code>/<code>error_after</code> dans le YAML</p>
-        </section>
-
-        <section class="slide">
-            <h2>Partie 3 — Le nouveau venu trop pressé</h2>
+            <h2>Partie 2 — Le nouveau venu trop pressé</h2>
             <div class="cmd"><pre>mise run demo:new-restaurant-volume</pre></div>
             <div class="columns">
                 <div class="card card--accent">
