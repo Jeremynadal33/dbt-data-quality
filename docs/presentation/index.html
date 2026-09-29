@@ -327,6 +327,32 @@
             margin-top: .6em;
         }
 
+        .ippon-title-logo {
+            display: block;
+            height: 2.4em;
+            margin: .4em 0 1em;
+        }
+
+        .speaker {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1em;
+            text-align: center;
+        }
+
+        .speaker-photo {
+            width: 14em;
+            height: 14em;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 5px solid var(--snowflake-blue);
+        }
+
+        .speaker-logo {
+            height: 2.4em;
+        }
+
         .corner-logo {
             position: absolute;
             top: 2vh;
@@ -404,7 +430,7 @@
                 <a href="https://docs.elementary-data.com/" target="_blank" title="Documentation Elementary"><img src="assets/elementary-logo-white.png" alt="Elementary"></a>
             </div>
             <h1>La data quality ? En veux tu en voilà !</h1>
-            <p class="subtitle">dbt × Elementary</p>
+            <img class="ippon-title-logo" src="assets/ippon-logo-white.svg" alt="Ippon Technologies">
             <p>SUGA — Snowflake User Group Aquitaine</p>
             <a class="snowflake-title-logo" href="https://docs.snowflake.com/" target="_blank" title="Documentation Snowflake"><img src="assets/snowflake-logo-white.svg" alt="Snowflake"></a>
         </section>
@@ -504,6 +530,14 @@
             <div class="card card--dim" style="margin-top:1em">
                 <h3>En contrepoint : <code>unit_tests</code></h3>
                 <p>Testent la <em>logique</em> d'un modèle dbt sur des données mockées — c'est du test de code, pas de donnée.</p>
+            </div>
+        </section>
+
+        <section class="slide">
+            <div class="speaker">
+                <img class="speaker-photo" src="assets/moi.jpg" alt="Jérémy Nadal">
+                <h3>Lead Data</h3>
+                <img class="speaker-logo" src="assets/ippon-logo.svg" alt="Ippon Technologies">
             </div>
         </section>
 
