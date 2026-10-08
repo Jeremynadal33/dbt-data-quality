@@ -161,15 +161,16 @@ statique.
 `restaurants.comment` contient un commentaire libre, anodin pour tous les restaurants
 (« Restaurant à thème marin »…). Le scénario `new-restaurant-volume` remplace celui du
 restaurant "dormant" par un commentaire inacceptable (blanchiment d'argent). Le test custom
-`is_acceptable` (`dbt/src/tests/generic/is_acceptable.sql`) le détecte en appelant une UDF
-Python Snowflake, qui interroge le modèle Jev de TypeSafe via OpenRouter
-(`api/alpha/decisions`) et renvoie un score entre 0 (inacceptable) et 1 (acceptable). Le
-test échoue sous 0,5.
+`is_acceptable` (`dbt/src/tests/generic/is_acceptable.sql`) le détecte en appelant
+`udf.ai_decide`, une UDF Python Snowflake générique (même nom et même signature que le
+`ai_decide` de Databricks : `state`, `questions`, et un `model` optionnel) qui interroge le modèle Jev de TypeSafe via OpenRouter
+(`api/alpha/decisions`). Le test en extrait un score entre 0 (inacceptable) et 1
+(acceptable) et échoue sous 0,5, ou si l'appel à l'API a échoué (`error_message`).
 
 > **Partie non rejouable.** Aucune tâche `mise` ni la CI ne crée la UDF, et elle appelle
 > une API payante. L'appel à `is_acceptable` dans `_catalog__sources.yml` doit donc être
-> **commenté**, pour que le reste du projet tourne sans la UDF. Ne le décommenter que
-> lorsque la UDF n'existe pas dans le compte.
+> **commenté** lorsque la UDF n'existe pas dans le compte, pour que le reste du projet
+> tourne sans elle.
 
 La UDF se crée **une seule fois, à la main**, en exécutant `data_generator/snowflake/jev_udf.sql` dans un
 worksheet Snowflake (rôle `ACCOUNTADMIN`, placeholders `<database>`, `<role>` et

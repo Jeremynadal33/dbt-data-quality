@@ -13,7 +13,7 @@ land on yesterday to be caught on the very next `dbt test` run.
 It also overwrites that restaurant's `comment` with an unacceptable one (money
 laundering front), meant to fail the custom `is_acceptable` dbt test. That test is NOT
 replayable out of the box: it calls a Snowflake UDF created by hand
-(snowflake/jev_udf.sql) that hits the paid OpenRouter API, so its usage in
+(ai_decide, data_generator/snowflake/jev_udf.sql) that hits the paid OpenRouter API, so its usage in
 _catalog__sources.yml stays commented out until the UDF exists — the comment update
 below is then harmless.
 """

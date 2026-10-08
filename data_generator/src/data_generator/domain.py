@@ -43,7 +43,7 @@ CUISINE_TYPES = ("italian", "japanese", "french", "indian", "lebanese", "mexican
 MENU_CATEGORIES = ("starter", "main", "dessert", "drink", "side")
 # Harmless on purpose: only the new_restaurant_volume chaos scenario writes an
 # unacceptable comment, which the custom is_acceptable dbt test must flag. That test is
-# NOT replayable out of the box (it needs the hand-made Jev UDF, snowflake/jev_udf.sql)
+# NOT replayable out of the box (it needs the hand-made ai_decide UDF, data_generator/snowflake/jev_udf.sql)
 # and stays commented out in _catalog__sources.yml until the UDF exists.
 RESTAURANT_COMMENTS = (
     "Restaurant à thème marin",

@@ -43,8 +43,8 @@ from the root, never via `cd`, so that dbt's output paths (`docs/dbt_docs`,
     chains the 4 Catalog ones (all but new_restaurant_volume) for demo part 1.
   - `utils/warehouse.py` — Snowflake connection/SQL helpers, no dbt dependency; reuses the
     same `DBT_SNOWFLAKE_*` env vars as dbt's `profiles.yml`.
-- `data_generator/snowflake/jev_udf.sql` — one-off, hand-run setup of the Jev UDF (network rule, secret,
-  external access integration, Python UDF). Not run by any `mise` task.
+- `data_generator/snowflake/jev_udf.sql` — one-off, hand-run setup of the `udf.ai_decide` Jev UDF (network rule,
+  secret, external access integration, Python UDF). Not run by any `mise` task.
 - `docs/` — the gh-pages site. `docs/dbt_docs/`, `docs/elementary_report/` and `docs/charts/`
   are build output (gitignored, do not hand-edit); `docs/index.html` (portal) and
   `docs/presentation/` (the slides) are hand-written and committed.
@@ -116,7 +116,9 @@ Snowflake account — Elementary models are only enabled on `prod` (see `dbt_pro
   (`domain.py: RESTAURANT_COMMENTS`, picked by index so the seeded rng/Faker sequence is
   unchanged); `new_restaurant_volume` overwrites the dormant one with a money-laundering
   comment. It is checked by the custom test `dbt/src/tests/generic/is_acceptable.sql`,
-  which calls a Snowflake Python UDF hitting Jev (OpenRouter `api/alpha/decisions`),
+  which calls `udf.ai_decide(state, questions [, model])` — a generic Snowflake Python UDF
+  mirroring Databricks' `ai_decide` (returns a VARIANT with `response`/`error_message`,
+  never raises) that hits Jev (OpenRouter `api/alpha/decisions`) —
   created by hand from `data_generator/snowflake/jev_udf.sql` in a dedicated `udf` schema — outside
   `demo:reset`'s `drop schema ... cascade`. **Not replayable**: no task/CI creates the UDF
   and it calls a paid API, so the `is_acceptable` usage in `_catalog__sources.yml` must
